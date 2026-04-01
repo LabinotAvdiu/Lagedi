@@ -1,8 +1,10 @@
-.PHONY: install makeup makeexec down logs
+.PHONY: install up exec down logs
 
 install:
 	docker-compose build
 	docker-compose up -d db php-nginx
+	sleep 5
+	docker-compose exec -T php-nginx php artisan migrate --force
 
 up:
 	docker-compose up -d --build

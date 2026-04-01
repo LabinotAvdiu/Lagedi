@@ -15,7 +15,9 @@ services:
       - "3307:3306"
 
   php-nginx:
-    image: nginx:alpine
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     restart: unless-stopped
     volumes:
       - ./backend:/var/www/html
