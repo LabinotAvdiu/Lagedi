@@ -1,5 +1,20 @@
 #!/bin/bash
-chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
-chmod -R ug+rwx /var/www/html/storage /var/www/html/bootstrap/cache
+
+if [ ! -f .env ]; then
+    cp .env.example .env
+    php artisan key:generate
+fi
+
+composer install --no-interaction --optimize-autoloader
+
+chown -R www-data:www-data storage bootstrap/cache
+chmod -R 775 storage bootstrap/cache
+
 php artisan config:clear
-exec apache2-foreground
+
+until php artisan migrate --force; do
+    echo "DB not ready, retrying in 3s..."
+    sleep 3
+done
+
+exec "$@"

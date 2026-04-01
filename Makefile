@@ -1,19 +1,17 @@
-.PHONY: install up exec down logs
+.PHONY: install up down exec logs
 
 install:
 	docker-compose build
-	docker-compose up -d db php-nginx
-	sleep 5
-	docker-compose exec -T php-nginx php artisan migrate --force
+	docker-compose up -d
 
 up:
 	docker-compose up -d --build
 
-exec:
-	docker-compose exec php-nginx bash
-
 down:
 	docker-compose down
+
+exec:
+	docker-compose exec php bash
 
 logs:
 	docker-compose logs -f
