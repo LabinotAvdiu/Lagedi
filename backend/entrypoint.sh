@@ -12,7 +12,7 @@ chmod -R 775 storage bootstrap/cache
 
 php artisan config:clear
 
-until php artisan migrate --force; do
+until php artisan migrate; do
     echo "DB not ready, retrying in 3s..."
     sleep 3
 done
