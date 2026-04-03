@@ -4,5 +4,4 @@
     <p>Vue 3 fonctionne !</p>
   </div>
 </template>
-<script setup>
-</script>
+<script setup></script>
