@@ -1,11 +1,11 @@
 #!/bin/bash
 
+composer install --no-interaction --optimize-autoloader
+
 if [ ! -f .env ]; then
     cp .env.example .env
     php artisan key:generate
 fi
-
-composer install --no-interaction --optimize-autoloader
 
 chown -R www-data:www-data storage bootstrap/cache
 chmod -R 775 storage bootstrap/cache
