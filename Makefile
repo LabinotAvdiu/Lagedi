@@ -1,4 +1,4 @@
-.PHONY: install up down exec logs
+.PHONY: install up down exec logs lint format
 
 install:
 	docker-compose build
@@ -15,3 +15,9 @@ exec:
 
 logs:
 	docker-compose logs -f
+
+lint:
+	docker-compose exec frontend npm run lint
+
+format:
+	docker-compose exec frontend npm run format
