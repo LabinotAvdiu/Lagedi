@@ -8,5 +8,7 @@ module.exports = {
     "plugin:vue/vue3-recommended",
     "prettier",
   ],
-  rules: {},
+  rules: {
+    "no-var": "error",
+  },
 }

@@ -1,0 +1,29 @@
+{
+  "app": {
+    "name": "Lagedi"
+  },
+  "nav": {
+    "iAmProfessional": "I am a professional",
+    "myAccount": "My Account"
+  },
+  "home": {
+    "title": "Book your barber in a few clicks",
+    "subtitle": "Find the best barbers near you and book online, 24/7.",
+    "searchPlaceholder": "Where? (city, neighborhood...)",
+    "searchButton": "Search",
+    "features": {
+      "booking": {
+        "title": "Instant booking",
+        "description": "Pick a slot and book in one click, no need to call."
+      },
+      "barbers": {
+        "title": "Verified barbers",
+        "description": "Professionals rated and recommended by the community."
+      },
+      "available": {
+        "title": "Available 24/7",
+        "description": "Check availability and book anytime."
+      }
+    }
+  }
+}

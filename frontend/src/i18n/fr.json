@@ -1,0 +1,29 @@
+{
+  "app": {
+    "name": "Lagedi"
+  },
+  "nav": {
+    "iAmProfessional": "Je suis un professionnel",
+    "myAccount": "Mon Compte"
+  },
+  "home": {
+    "title": "Réservez votre barbier en quelques clics",
+    "subtitle": "Trouvez les meilleurs barbiers près de chez vous et réservez en ligne, 24h/24.",
+    "searchPlaceholder": "Où ? (ville, quartier...)",
+    "searchButton": "Rechercher",
+    "features": {
+      "booking": {
+        "title": "Réservation instantanée",
+        "description": "Choisissez un créneau et réservez en un clic, sans appeler."
+      },
+      "barbers": {
+        "title": "Barbiers vérifiés",
+        "description": "Des professionnels notés et recommandés par la communauté."
+      },
+      "available": {
+        "title": "Disponible 24h/24",
+        "description": "Consultez les disponibilités et réservez à tout moment."
+      }
+    }
+  }
+}
