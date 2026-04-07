@@ -4,7 +4,8 @@
   },
   "nav": {
     "iAmProfessional": "I am a professional",
-    "myAccount": "My Account"
+    "myAccount": "My Account",
+    "logout": "Log out"
   },
   "home": {
     "title": "Book your barber in a few clicks",
@@ -24,6 +25,31 @@
         "title": "Available 24/7",
         "description": "Check availability and book anytime."
       }
+    }
+  },
+  "auth": {
+    "email": "Email",
+    "password": "Password",
+    "name": "Last name",
+    "firstName": "First name",
+    "phone": "Mobile phone",
+    "phonePlaceholder": "Enter your number...",
+    "optional": "(optional)",
+    "or": "or",
+    "togglePassword": "Show/hide password",
+    "login": {
+      "title": "Already used Lagedi?",
+      "submit": "Sign in",
+      "forgotPassword": "Forgot password?",
+      "createAccount": "Create my account"
+    },
+    "register": {
+      "title": "New to Lagedi?",
+      "submit": "Create my account",
+      "loginLink": "Sign in"
+    },
+    "error": {
+      "generic": "An error occurred. Please try again."
     }
   }
 }

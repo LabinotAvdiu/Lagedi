@@ -11,7 +11,7 @@
     <div class="header-right">
       <Button
         :label="t('nav.iAmProfessional')"
-        text
+        outlined
         class="nav-btn"
       />
       <Button
@@ -19,6 +19,14 @@
         severity="contrast"
         rounded
         class="account-btn"
+        :icon="isLoggedIn ? 'pi pi-check-circle' : undefined"
+        icon-pos="right"
+        @click="onAccountClick"
+      />
+      <Menu
+        ref="accountMenu"
+        :model="accountMenuItems"
+        popup
       />
       <select
         :value="locale"
@@ -33,10 +41,36 @@
 </template>
 
 <script setup>
+import { ref, computed } from "vue";
 import { useI18n } from "vue-i18n";
+import { useRouter } from "vue-router";
 import Button from "primevue/button";
+import Menu from "primevue/menu";
+import { isLoggedIn, setLoggedIn } from "../composables/useAuth";
 
 const { t, locale } = useI18n();
+const router = useRouter();
+
+const accountMenu = ref();
+
+const accountMenuItems = computed(() => [
+  {
+    label: t("nav.logout"),
+    icon: "pi pi-sign-out",
+    command: () => {
+      setLoggedIn(false);
+      router.push("/connexion");
+    },
+  },
+]);
+
+const onAccountClick = (event) => {
+  if (isLoggedIn.value) {
+    accountMenu.value.toggle(event);
+  } else {
+    router.push("/connexion");
+  }
+};
 
 const onLangChange = (event) => {
   locale.value = event.target.value;
@@ -70,12 +104,14 @@ const onLangChange = (event) => {
 }
 
 .nav-btn {
-  color: #b0bec5 !important;
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.7) !important;
   font-weight: 500;
 }
 
 .nav-btn:hover {
-  color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  border-color: #ffffff !important;
 }
 
 .account-btn {

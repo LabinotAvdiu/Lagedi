@@ -4,7 +4,8 @@
   },
   "nav": {
     "iAmProfessional": "Je suis un professionnel",
-    "myAccount": "Mon Compte"
+    "myAccount": "Mon Compte",
+    "logout": "Se déconnecter"
   },
   "home": {
     "title": "Réservez votre barbier en quelques clics",
@@ -24,6 +25,31 @@
         "title": "Disponible 24h/24",
         "description": "Consultez les disponibilités et réservez à tout moment."
       }
+    }
+  },
+  "auth": {
+    "email": "Email",
+    "password": "Mot de passe",
+    "name": "Nom",
+    "firstName": "Prénom",
+    "phone": "Téléphone portable",
+    "phonePlaceholder": "Entrer votre numéro...",
+    "optional": "(facultatif)",
+    "or": "ou",
+    "togglePassword": "Afficher/masquer le mot de passe",
+    "login": {
+      "title": "Vous avez déjà utilisé Lagedi ?",
+      "submit": "Se connecter",
+      "forgotPassword": "Mot de passe oublié ?",
+      "createAccount": "Créer mon compte"
+    },
+    "register": {
+      "title": "Nouveau sur Lagedi ?",
+      "submit": "Créer mon compte",
+      "loginLink": "Se connecter"
+    },
+    "error": {
+      "generic": "Une erreur est survenue. Veuillez réessayer."
     }
   }
 }
