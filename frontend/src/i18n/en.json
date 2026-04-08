@@ -51,5 +51,17 @@
     "error": {
       "generic": "An error occurred. Please try again."
     }
+  },
+  "search": {
+    "title": "Select a salon",
+    "subtitle": "The best salons near {city} · {count} results",
+    "loading": "Searching...",
+    "error": "An error occurred. Please try again.",
+    "noResults": "No salons found in {city}.",
+    "reviews": "reviews",
+    "openNow": "Open now",
+    "closedNow": "Closed",
+    "moreInfo": "More info",
+    "book": "Book"
   }
 }

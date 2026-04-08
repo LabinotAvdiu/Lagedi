@@ -51,5 +51,17 @@
     "error": {
       "generic": "Une erreur est survenue. Veuillez réessayer."
     }
+  },
+  "search": {
+    "title": "Sélectionnez un salon",
+    "subtitle": "Les meilleurs salons aux alentours de {city} · {count} résultats",
+    "loading": "Recherche en cours...",
+    "error": "Une erreur est survenue. Veuillez réessayer.",
+    "noResults": "Aucun salon trouvé à {city}.",
+    "reviews": "avis",
+    "openNow": "Ouvert maintenant",
+    "closedNow": "Fermé",
+    "moreInfo": "Plus d'informations",
+    "book": "Prendre RDV"
   }
 }

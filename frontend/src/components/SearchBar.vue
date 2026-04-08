@@ -20,14 +20,17 @@
 <script setup>
 import { ref } from "vue";
 import { useI18n } from "vue-i18n";
+import { useRouter } from "vue-router";
 import InputText from "primevue/inputtext";
 import Button from "primevue/button";
 
 const { t } = useI18n();
+const router = useRouter();
 const city = ref("");
 
 const onSearch = () => {
-  console.log("search:", city.value);
+  if (!city.value.trim()) return;
+  router.push({ name: "search", query: { city: city.value.trim() } });
 };
 </script>
 
