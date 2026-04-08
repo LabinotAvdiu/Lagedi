@@ -5,10 +5,10 @@ services:
     image: mysql:8.0
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: rootPassword
-      MYSQL_DATABASE: LagediDB
-      MYSQL_USER: userDB
-      MYSQL_PASSWORD: passwordDB
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     volumes:
       - db_data:/var/lib/mysql
     ports:
@@ -19,6 +19,8 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     restart: unless-stopped
+    environment:
+      GOOGLE_PLACES_API_KEY: ${GOOGLE_PLACES_API_KEY}
     volumes:
       - ./backend:/var/www/html
     depends_on:
@@ -38,6 +40,9 @@ services:
   frontend:
     image: node:20
     working_dir: /usr/src/app
+    environment:
+      VITE_GOOGLE_MAPS_KEY: ${VITE_GOOGLE_MAPS_KEY}
+      VITE_API_URL: ${VITE_API_URL}
     volumes:
       - ./frontend:/usr/src/app
     ports:
