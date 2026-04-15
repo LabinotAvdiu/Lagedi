@@ -97,6 +97,6 @@ body {
 .p-password input:focus,
 .p-inputtextarea:focus {
   outline: none;
-  box-shadow: 0 0 0 2px rgba(0,0,0,0.05);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.05);
 }
 </style>

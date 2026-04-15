@@ -3,10 +3,7 @@
     <div class="auth-card">
       <h1 class="auth-title">{{ t("auth.register.title") }}</h1>
 
-      <form
-        class="auth-form"
-        @submit.prevent="onSubmit"
-      >
+      <form class="auth-form" @submit.prevent="onSubmit">
         <div class="field-row">
           <div class="field">
             <label for="name">{{ t("auth.name") }} *</label>
@@ -79,10 +76,7 @@
           </div>
         </div>
 
-        <p
-          v-if="errorMessage"
-          class="error-message"
-        >
+        <p v-if="errorMessage" class="error-message">
           {{ errorMessage }}
         </p>
 
@@ -156,9 +150,7 @@ const onSubmit = async () => {
 
     router.push("/");
   } catch (err) {
-    const firstError = err?.errors
-      ? Object.values(err.errors)[0]?.[0]
-      : null;
+    const firstError = err?.errors ? Object.values(err.errors)[0]?.[0] : null;
     errorMessage.value = firstError ?? err?.message ?? t("auth.error.generic");
   } finally {
     loading.value = false;

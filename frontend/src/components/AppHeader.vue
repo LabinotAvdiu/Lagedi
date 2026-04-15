@@ -1,19 +1,12 @@
 <template>
   <header class="app-header">
     <div class="header-left">
-      <router-link
-        to="/"
-        class="app-logo"
-      >
+      <router-link to="/" class="app-logo">
         {{ t("app.name") }}
       </router-link>
     </div>
     <div class="header-right">
-      <Button
-        :label="t('nav.iAmProfessional')"
-        outlined
-        class="nav-btn"
-      />
+      <Button :label="t('nav.iAmProfessional')" outlined class="nav-btn" />
       <Button
         :label="t('nav.myAccount')"
         severity="contrast"
@@ -23,11 +16,7 @@
         icon-pos="right"
         @click="onAccountClick"
       />
-      <Menu
-        ref="accountMenu"
-        :model="accountMenuItems"
-        popup
-      />
+      <Menu ref="accountMenu" :model="accountMenuItems" popup />
       <Select
         v-model="locale"
         :options="languages"
@@ -76,8 +65,6 @@ const onAccountClick = (event) => {
     router.push("/connexion");
   }
 };
-
-
 </script>
 
 <style scoped>

@@ -7,7 +7,6 @@
         <SearchBar />
       </div>
     </section>
-
   </div>
 </template>
 

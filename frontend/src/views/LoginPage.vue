@@ -3,10 +3,7 @@
     <div class="auth-card">
       <h1 class="auth-title">{{ t("auth.login.title") }}</h1>
 
-      <form
-        class="auth-form"
-        @submit.prevent="onSubmit"
-      >
+      <form class="auth-form" @submit.prevent="onSubmit">
         <div class="field">
           <label for="email">{{ t("auth.email") }} *</label>
           <InputText
@@ -39,18 +36,12 @@
               <i :class="showPassword ? 'pi pi-eye-slash' : 'pi pi-eye'" />
             </button>
           </div>
-          <router-link
-            to="/mot-de-passe-oublie"
-            class="forgot-link"
-          >
+          <router-link to="/mot-de-passe-oublie" class="forgot-link">
             {{ t("auth.login.forgotPassword") }}
           </router-link>
         </div>
 
-        <p
-          v-if="errorMessage"
-          class="error-message"
-        >
+        <p v-if="errorMessage" class="error-message">
           {{ errorMessage }}
         </p>
 
