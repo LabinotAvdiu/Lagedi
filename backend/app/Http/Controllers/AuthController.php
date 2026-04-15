@@ -2,51 +2,39 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\LoginRequest;
+use App\Http\Requests\RegisterRequest;
+use App\Http\Resources\UserResource;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
-    public function register(Request $request): JsonResponse
+    public function register(RegisterRequest $request): JsonResponse
     {
-        $validated = $request->validate([
-            'name'       => 'required|string|max:255',
-            'first_name' => 'nullable|string|max:255',
-            'email'      => 'required|string|email|max:255|unique:users',
-            'password'   => 'required|string|min:8',
-            'phone'      => 'required|string|max:20',
-        ]);
+        $validated = $request->validated();
 
         $user = User::create([
-            'name'       => $validated['name'],
-            'first_name' => $validated['first_name'] ?? null,
-            'email'      => $validated['email'],
-            'password'   => Hash::make($validated['password']),
-            'phone'      => $validated['phone'],
-            'api_token'  => Str::random(80),
+            ...$validated,
+            'api_token' => Str::random(80),
         ]);
 
         return response()->json([
-            'user'  => $user->only(['id', 'name', 'first_name', 'email', 'phone']),
+            'user'  => UserResource::make($user),
             'token' => $user->api_token,
         ], 201);
     }
 
-    public function login(Request $request): JsonResponse
+    public function login(LoginRequest $request): JsonResponse
     {
-        $validated = $request->validate([
-            'email'    => 'required|string|email',
-            'password' => 'required|string',
-        ]);
+        $validated = $request->validated();
 
         if (!Auth::attempt(['email' => $validated['email'], 'password' => $validated['password']])) {
             throw ValidationException::withMessages([
-                'email' => ['Identifiants incorrects.'],
+                'email' => ['invalid_credentials'],
             ]);
         }
 
@@ -55,7 +43,7 @@ class AuthController extends Controller
         $user->save();
 
         return response()->json([
-            'user'  => $user->only(['id', 'name', 'first_name', 'email', 'phone']),
+            'user'  => UserResource::make($user),
             'token' => $user->api_token,
         ]);
     }
