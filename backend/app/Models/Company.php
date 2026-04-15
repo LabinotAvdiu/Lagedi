@@ -12,7 +12,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 #[Fillable([
     'name', 'description', 'phone', 'email',
     'address', 'city', 'postal_code', 'country',
-    'gender', 'location',
+    'gender', 'location', 'profile_image_url',
+    'rating', 'review_count', 'price_level',
 ])]
 class Company extends Model
 {
@@ -21,8 +22,11 @@ class Company extends Model
     protected function casts(): array
     {
         return [
-            'location' => 'array',
-            'gender' => Gender::class,
+            'location'     => 'array',
+            'gender'       => Gender::class,
+            'rating'       => 'decimal:2',
+            'review_count' => 'integer',
+            'price_level'  => 'integer',
         ];
     }
 
@@ -51,6 +55,11 @@ class Company extends Model
     public function members(): HasMany
     {
         return $this->hasMany(CompanyUser::class);
+    }
+
+    public function serviceCategories(): HasMany
+    {
+        return $this->hasMany(ServiceCategory::class)->orderBy('name');
     }
 
     public function services(): HasMany

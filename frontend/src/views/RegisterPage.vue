@@ -3,28 +3,28 @@
     <div class="auth-card">
       <h1 class="auth-title">{{ t("auth.register.title") }}</h1>
 
-      <form class="auth-form" @submit.prevent="onSubmit">
+      <form
+        class="auth-form"
+        @submit.prevent="onSubmit"
+      >
         <div class="field-row">
           <div class="field">
-            <label for="name">{{ t("auth.name") }} *</label>
-            <InputText
-              id="name"
-              v-model="form.name"
-              :placeholder="t('auth.name')"
-              autocomplete="family-name"
-              class="w-full"
-            />
-          </div>
-          <div class="field">
-            <label for="first_name">
-              {{ t("auth.firstName") }}
-              <span class="optional">{{ t("auth.optional") }}</span>
-            </label>
+            <label for="first_name">{{ t("auth.firstName") }} *</label>
             <InputText
               id="first_name"
               v-model="form.first_name"
               :placeholder="t('auth.firstName')"
               autocomplete="given-name"
+              class="w-full"
+            />
+          </div>
+          <div class="field">
+            <label for="last_name">{{ t("auth.lastName") }} *</label>
+            <InputText
+              id="last_name"
+              v-model="form.last_name"
+              :placeholder="t('auth.lastName')"
+              autocomplete="family-name"
               class="w-full"
             />
           </div>
@@ -76,7 +76,10 @@
           </div>
         </div>
 
-        <p v-if="errorMessage" class="error-message">
+        <p
+          v-if="errorMessage"
+          class="error-message"
+        >
           {{ errorMessage }}
         </p>
 
@@ -117,8 +120,8 @@ const { t } = useI18n();
 const router = useRouter();
 
 const form = ref({
-  name: "",
   first_name: "",
+  last_name: "",
   email: "",
   password: "",
   phone: "",
@@ -133,15 +136,12 @@ const onSubmit = async () => {
 
   try {
     const payload = {
-      name: form.value.name,
+      first_name: form.value.first_name,
+      last_name: form.value.last_name,
       email: form.value.email,
       password: form.value.password,
       phone: form.value.phone,
     };
-
-    if (form.value.first_name.trim()) {
-      payload.first_name = form.value.first_name.trim();
-    }
 
     const data = await authService.register(payload);
 
@@ -150,8 +150,12 @@ const onSubmit = async () => {
 
     router.push("/");
   } catch (err) {
-    const firstError = err?.errors ? Object.values(err.errors)[0]?.[0] : null;
-    errorMessage.value = firstError ?? err?.message ?? t("auth.error.generic");
+    const firstError = err?.errors
+      ? Object.values(err.errors)[0]?.[0]
+      : null;
+    errorMessage.value = firstError
+      ? t(`auth.error.${firstError}`, firstError)
+      : t("auth.error.generic");
   } finally {
     loading.value = false;
   }
@@ -164,12 +168,12 @@ const onSubmit = async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--color-bg-page);
+  background: #f4f4f4;
   padding: 2rem;
 }
 
 .auth-card {
-  background: var(--color-bg-white);
+  background: #ffffff;
   border-radius: 12px;
   padding: 3rem 2.5rem;
   width: 100%;
@@ -181,7 +185,7 @@ const onSubmit = async () => {
   font-size: 1.4rem;
   font-weight: 700;
   text-align: center;
-  color: var(--color-primary);
+  color: #1a1a2e;
   margin-bottom: 2rem;
 }
 
@@ -206,7 +210,7 @@ const onSubmit = async () => {
 .field label {
   font-size: 0.875rem;
   font-weight: 600;
-  color: var(--color-text);
+  color: #333;
   display: flex;
   align-items: center;
   gap: 0.4rem;
@@ -215,21 +219,21 @@ const onSubmit = async () => {
 .optional {
   font-size: 0.8rem;
   font-weight: 400;
-  color: var(--color-text-subtle);
+  color: #9ca3af;
 }
 
 .field :deep(input) {
   width: 100%;
   border-radius: 8px;
-  border: 1px solid var(--color-border);
+  border: 1px solid #d1d5db;
   padding: 0.65rem 0.875rem;
   font-size: 0.95rem;
-  color: var(--color-primary);
+  color: #1a1a2e;
   transition: border-color 0.2s;
 }
 
 .field :deep(input:focus) {
-  border-color: var(--color-primary);
+  border-color: #1a1a2e;
   outline: none;
   box-shadow: none;
 }
@@ -250,7 +254,7 @@ const onSubmit = async () => {
   background: none;
   border: none;
   cursor: pointer;
-  color: var(--color-text-toggle);
+  color: #6b7280;
   padding: 0;
   display: flex;
   align-items: center;
@@ -258,15 +262,15 @@ const onSubmit = async () => {
 
 .error-message {
   font-size: 0.875rem;
-  color: var(--color-text-error);
+  color: #dc2626;
   text-align: center;
 }
 
 .submit-btn {
   width: 100%;
-  background: var(--color-primary);
-  border-color: var(--color-primary);
-  color: var(--color-text-light);
+  background: #1a1a2e !important;
+  border-color: #1a1a2e !important;
+  color: #ffffff !important;
   border-radius: 8px;
   padding: 0.75rem;
   font-size: 1rem;
@@ -279,7 +283,7 @@ const onSubmit = async () => {
   align-items: center;
   gap: 1rem;
   margin: 2rem 0;
-  color: var(--color-text-subtle);
+  color: #9ca3af;
   font-size: 0.875rem;
 }
 
@@ -288,7 +292,7 @@ const onSubmit = async () => {
   content: "";
   flex: 1;
   height: 1px;
-  background: var(--color-separator);
+  background: #e5e7eb;
 }
 
 .alt-section {
@@ -301,15 +305,15 @@ const onSubmit = async () => {
 .alt-title {
   font-size: 1.2rem;
   font-weight: 700;
-  color: var(--color-primary);
+  color: #1a1a2e;
   text-align: center;
 }
 
 .alt-btn {
   width: 100%;
   border-radius: 8px;
-  border-color: var(--color-primary);
-  color: var(--color-primary);
+  border-color: #1a1a2e !important;
+  color: #1a1a2e !important;
   padding: 0.75rem;
   font-size: 1rem;
   font-weight: 600;

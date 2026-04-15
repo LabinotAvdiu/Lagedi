@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker-compose ps:*)",
+      "Skill(update-config)",
+      "Bash(sed -i 's|/c/flutter/bin|/c/flutter/bin|' ~/.bashrc)",
+      "Bash(export PATH=\"$PATH:/c/flutter/bin\")",
+      "Bash(flutter --version)"
+    ]
+  }
+}

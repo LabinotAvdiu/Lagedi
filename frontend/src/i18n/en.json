@@ -30,8 +30,8 @@
   "auth": {
     "email": "Email",
     "password": "Password",
-    "name": "Last name",
     "firstName": "First name",
+    "lastName": "Last name",
     "phone": "Mobile phone",
     "phonePlaceholder": "Enter your number...",
     "optional": "(optional)",
@@ -50,11 +50,8 @@
     },
     "error": {
       "generic": "An error occurred. Please try again.",
-      "is_required": "This field is required.",
-      "is_invalid": "This field is invalid.",
-      "already_taken": "This email address is already taken.",
-      "min_8_characters": "Password must be at least 8 characters.",
-      "invalid_credentials": "Invalid email or password."
+      "invalid_credentials": "Invalid email or password.",
+      "account_locked": "Account temporarily locked. Please try again later."
     }
   }
 }

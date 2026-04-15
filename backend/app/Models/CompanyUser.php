@@ -19,8 +19,9 @@ class CompanyUser extends Model
     protected function casts(): array
     {
         return [
-            'role' => CompanyRole::class,
-            'is_active' => 'boolean',
+            'role'        => CompanyRole::class,
+            'is_active'   => 'boolean',
+            'specialties' => 'array',
         ];
     }
 
