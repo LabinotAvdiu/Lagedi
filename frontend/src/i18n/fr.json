@@ -1,0 +1,60 @@
+{
+  "app": {
+    "name": "Lagedi"
+  },
+  "nav": {
+    "iAmProfessional": "Je suis un professionnel",
+    "myAccount": "Mon Compte",
+    "logout": "Se déconnecter"
+  },
+  "home": {
+    "title": "Réservez votre barbier en quelques clics",
+    "subtitle": "Trouvez les meilleurs barbiers près de chez vous et réservez en ligne, 24h/24.",
+    "searchPlaceholder": "Où ? (ville, quartier...)",
+    "searchButton": "Rechercher",
+    "features": {
+      "booking": {
+        "title": "Réservation instantanée",
+        "description": "Choisissez un créneau et réservez en un clic, sans appeler."
+      },
+      "barbers": {
+        "title": "Barbiers vérifiés",
+        "description": "Des professionnels notés et recommandés par la communauté."
+      },
+      "available": {
+        "title": "Disponible 24h/24",
+        "description": "Consultez les disponibilités et réservez à tout moment."
+      }
+    }
+  },
+  "auth": {
+    "email": "Email",
+    "password": "Mot de passe",
+    "name": "Nom",
+    "firstName": "Prénom",
+    "phone": "Téléphone portable",
+    "phonePlaceholder": "Entrer votre numéro...",
+    "optional": "(facultatif)",
+    "or": "ou",
+    "togglePassword": "Afficher/masquer le mot de passe",
+    "login": {
+      "title": "Vous avez déjà utilisé Lagedi ?",
+      "submit": "Se connecter",
+      "forgotPassword": "Mot de passe oublié ?",
+      "createAccount": "Créer mon compte"
+    },
+    "register": {
+      "title": "Nouveau sur Lagedi ?",
+      "submit": "Créer mon compte",
+      "loginLink": "Se connecter"
+    },
+    "error": {
+      "generic": "Une erreur est survenue. Veuillez réessayer.",
+      "is_required": "Ce champ est obligatoire.",
+      "is_invalid": "Ce champ est invalide.",
+      "already_taken": "Cette adresse email est déjà utilisée.",
+      "min_8_characters": "Le mot de passe doit contenir au moins 8 caractères.",
+      "invalid_credentials": "Email ou mot de passe incorrect."
+    }
+  }
+}

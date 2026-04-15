@@ -1,0 +1,60 @@
+{
+  "app": {
+    "name": "Lagedi"
+  },
+  "nav": {
+    "iAmProfessional": "I am a professional",
+    "myAccount": "My Account",
+    "logout": "Log out"
+  },
+  "home": {
+    "title": "Book your barber in a few clicks",
+    "subtitle": "Find the best barbers near you and book online, 24/7.",
+    "searchPlaceholder": "Where? (city, neighborhood...)",
+    "searchButton": "Search",
+    "features": {
+      "booking": {
+        "title": "Instant booking",
+        "description": "Pick a slot and book in one click, no need to call."
+      },
+      "barbers": {
+        "title": "Verified barbers",
+        "description": "Professionals rated and recommended by the community."
+      },
+      "available": {
+        "title": "Available 24/7",
+        "description": "Check availability and book anytime."
+      }
+    }
+  },
+  "auth": {
+    "email": "Email",
+    "password": "Password",
+    "name": "Last name",
+    "firstName": "First name",
+    "phone": "Mobile phone",
+    "phonePlaceholder": "Enter your number...",
+    "optional": "(optional)",
+    "or": "or",
+    "togglePassword": "Show/hide password",
+    "login": {
+      "title": "Already used Lagedi?",
+      "submit": "Sign in",
+      "forgotPassword": "Forgot password?",
+      "createAccount": "Create my account"
+    },
+    "register": {
+      "title": "New to Lagedi?",
+      "submit": "Create my account",
+      "loginLink": "Sign in"
+    },
+    "error": {
+      "generic": "An error occurred. Please try again.",
+      "is_required": "This field is required.",
+      "is_invalid": "This field is invalid.",
+      "already_taken": "This email address is already taken.",
+      "min_8_characters": "Password must be at least 8 characters.",
+      "invalid_credentials": "Invalid email or password."
+    }
+  }
+}

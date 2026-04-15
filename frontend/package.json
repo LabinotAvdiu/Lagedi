@@ -10,7 +10,12 @@
     "format": "prettier . --write"
   },
   "dependencies": {
-    "vue": "^3.4.0"
+    "@primevue/themes": "^4.5.4",
+    "primeicons": "^7.0.0",
+    "primevue": "^4.5.4",
+    "vue": "^3.4.0",
+    "vue-i18n": "^11.3.1",
+    "vue-router": "^5.0.4"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.0.0",
