@@ -88,6 +88,7 @@ jobs:
             -o StrictHostKeyChecking=yes \
             ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
             "cd /var/www/termini-api && \
+             chmod -R 775 storage bootstrap/cache && \
              composer install --no-dev --optimize-autoloader && \
              php artisan migrate --force && \
              php artisan config:cache && \
