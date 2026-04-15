@@ -9,25 +9,22 @@
       >
         <div class="field-row">
           <div class="field">
-            <label for="name">{{ t("auth.name") }} *</label>
-            <InputText
-              id="name"
-              v-model="form.name"
-              :placeholder="t('auth.name')"
-              autocomplete="family-name"
-              class="w-full"
-            />
-          </div>
-          <div class="field">
-            <label for="first_name">
-              {{ t("auth.firstName") }}
-              <span class="optional">{{ t("auth.optional") }}</span>
-            </label>
+            <label for="first_name">{{ t("auth.firstName") }} *</label>
             <InputText
               id="first_name"
               v-model="form.first_name"
               :placeholder="t('auth.firstName')"
               autocomplete="given-name"
+              class="w-full"
+            />
+          </div>
+          <div class="field">
+            <label for="last_name">{{ t("auth.lastName") }} *</label>
+            <InputText
+              id="last_name"
+              v-model="form.last_name"
+              :placeholder="t('auth.lastName')"
+              autocomplete="family-name"
               class="w-full"
             />
           </div>
@@ -123,8 +120,8 @@ const { t } = useI18n();
 const router = useRouter();
 
 const form = ref({
-  name: "",
   first_name: "",
+  last_name: "",
   email: "",
   password: "",
   phone: "",
@@ -139,15 +136,12 @@ const onSubmit = async () => {
 
   try {
     const payload = {
-      name: form.value.name,
+      first_name: form.value.first_name,
+      last_name: form.value.last_name,
       email: form.value.email,
       password: form.value.password,
       phone: form.value.phone,
     };
-
-    if (form.value.first_name.trim()) {
-      payload.first_name = form.value.first_name.trim();
-    }
 
     const data = await authService.register(payload);
 
@@ -159,7 +153,9 @@ const onSubmit = async () => {
     const firstError = err?.errors
       ? Object.values(err.errors)[0]?.[0]
       : null;
-    errorMessage.value = firstError ?? err?.message ?? t("auth.error.generic");
+    errorMessage.value = firstError
+      ? t(`auth.error.${firstError}`, firstError)
+      : t("auth.error.generic");
   } finally {
     loading.value = false;
   }

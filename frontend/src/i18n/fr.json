@@ -30,8 +30,8 @@
   "auth": {
     "email": "Email",
     "password": "Mot de passe",
-    "name": "Nom",
     "firstName": "Prénom",
+    "lastName": "Nom",
     "phone": "Téléphone portable",
     "phonePlaceholder": "Entrer votre numéro...",
     "optional": "(facultatif)",
@@ -49,7 +49,9 @@
       "loginLink": "Se connecter"
     },
     "error": {
-      "generic": "Une erreur est survenue. Veuillez réessayer."
+      "generic": "Une erreur est survenue. Veuillez réessayer.",
+      "invalid_credentials": "Email ou mot de passe incorrect.",
+      "account_locked": "Compte temporairement verrouillé. Réessayez plus tard."
     }
   }
 }

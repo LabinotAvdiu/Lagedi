@@ -30,8 +30,8 @@
   "auth": {
     "email": "Email",
     "password": "Password",
-    "name": "Last name",
     "firstName": "First name",
+    "lastName": "Last name",
     "phone": "Mobile phone",
     "phonePlaceholder": "Enter your number...",
     "optional": "(optional)",
@@ -49,7 +49,9 @@
       "loginLink": "Sign in"
     },
     "error": {
-      "generic": "An error occurred. Please try again."
+      "generic": "An error occurred. Please try again.",
+      "invalid_credentials": "Invalid email or password.",
+      "account_locked": "Account temporarily locked. Please try again later."
     }
   }
 }

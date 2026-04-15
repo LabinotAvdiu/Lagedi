@@ -112,8 +112,10 @@ const onSubmit = async () => {
 
     router.push("/");
   } catch (err) {
-    errorMessage.value =
-      err?.errors?.email?.[0] ?? err?.message ?? t("auth.error.generic");
+    const errorKey = err?.errors?.email?.[0];
+    errorMessage.value = errorKey
+      ? t(`auth.error.${errorKey}`, errorKey)
+      : t("auth.error.generic");
   } finally {
     loading.value = false;
   }

@@ -29,6 +29,14 @@ lint:
 format:
 	docker-compose exec frontend npm run format
 
+# Install PHP dependencies (run after adding new packages to composer.json)
+composer-install:
+	docker-compose exec php composer install
+
+# Run database migrations
+migrate:
+	docker-compose exec php php artisan migrate
+
 # Run PHPUnit tests
 #   make test                                        → all tests
 #   make test file=RegisterTest                      → a specific file/class
