@@ -2,12 +2,12 @@
 
 namespace Tests\Feature\Auth;
 
+use App\Models\User;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class RegisterTest extends TestCase
 {
-    // ─── Données valides de base ───────────────────────────────────────────────
-
     private function validPayload(array $overrides = []): array
     {
         return array_merge([
@@ -19,9 +19,7 @@ class RegisterTest extends TestCase
         ], $overrides);
     }
 
-    // ─── Cas qui marche ───────────────────────────────────────────────────────
-
-    public function test_user_can_register(): void
+    public function testUserCanRegister(): void
     {
         $response = $this->postJson('/api/auth/register', $this->validPayload());
 
@@ -37,7 +35,7 @@ class RegisterTest extends TestCase
         ]);
     }
 
-    public function test_user_can_register_without_first_name(): void
+    public function testUserCanRegisterWithoutFirstName(): void
     {
         $response = $this->postJson('/api/auth/register', $this->validPayload([
             'first_name' => null,
@@ -47,87 +45,57 @@ class RegisterTest extends TestCase
         $this->assertDatabaseHas('users', ['email' => 'jean@example.com']);
     }
 
-    // ─── Champs obligatoires manquants ────────────────────────────────────────
-
-    public function test_register_fails_without_name(): void
+    public static function invalidRegisterPayloads(): array
     {
-        $response = $this->postJson('/api/auth/register', $this->validPayload([
-            'name' => '',
-        ]));
-
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['name']);
+        return [
+            'missing name' => [
+                ['name' => ''],
+                'name',
+            ],
+            'missing email' => [
+                ['email' => ''],
+                'email',
+            ],
+            'invalid email' => [
+                ['email' => 'pas-un-email'],
+                'email',
+            ],
+            'missing password' => [
+                ['password' => ''],
+                'password',
+            ],
+            'short password' => [
+                ['password' => '123'],
+                'password',
+            ],
+            'missing phone' => [
+                ['phone' => ''],
+                'phone',
+            ],
+        ];
     }
 
-    public function test_register_fails_without_email(): void
+    #[DataProvider('invalidRegisterPayloads')]
+    public function testRegisterFailsWithInvalidPayload(array $override, string $errorField): void
     {
-        $response = $this->postJson('/api/auth/register', $this->validPayload([
-            'email' => '',
-        ]));
+        $response = $this->postJson('/api/auth/register', $this->validPayload($override));
 
         $response->assertStatus(422)
-            ->assertJsonValidationErrors(['email']);
+            ->assertJsonValidationErrors([$errorField]);
     }
 
-    public function test_register_fails_with_invalid_email(): void
-    {
-        $response = $this->postJson('/api/auth/register', $this->validPayload([
-            'email' => 'pas-un-email',
-        ]));
-
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['email']);
-    }
-
-    public function test_register_fails_without_password(): void
-    {
-        $response = $this->postJson('/api/auth/register', $this->validPayload([
-            'password' => '',
-        ]));
-
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['password']);
-    }
-
-    public function test_register_fails_with_short_password(): void
-    {
-        $response = $this->postJson('/api/auth/register', $this->validPayload([
-            'password' => '123',
-        ]));
-
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['password']);
-    }
-
-    public function test_register_fails_without_phone(): void
-    {
-        $response = $this->postJson('/api/auth/register', $this->validPayload([
-            'phone' => '',
-        ]));
-
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['phone']);
-    }
-
-    // ─── Email déjà utilisé ───────────────────────────────────────────────────
-
-    public function test_register_fails_with_duplicate_email(): void
+    public function testRegisterFailsWithDuplicateEmail(): void
     {
         $payload = $this->validPayload();
+        User::factory()->create(['email' => $payload['email']]);
 
-        // Premier register → OK
-        $this->postJson('/api/auth/register', $payload)->assertStatus(201);
-
-        // Deuxième avec le même email → doit échouer
         $response = $this->postJson('/api/auth/register', $payload);
 
         $response->assertStatus(422)
             ->assertJsonValidationErrors(['email']);
     }
 
-    // ─── Réponse ne doit pas exposer le mot de passe ──────────────────────────
-
-    public function test_register_response_does_not_expose_password(): void
+    public function testRegisterResponseDoesNotExposePassword(): void
     {
         $response = $this->postJson('/api/auth/register', $this->validPayload());
 
@@ -135,4 +103,3 @@ class RegisterTest extends TestCase
         $this->assertArrayNotHasKey('password', $response->json('user'));
     }
 }
-
