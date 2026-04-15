@@ -46,45 +46,45 @@ const onSearch = () => {
   display: flex;
   align-items: center;
   flex: 1;
-  background: #ffffff;
+  background: var(--color-bg-white);
   padding-left: 1.25rem;
 }
 
 .search-icon {
-  color: #999;
+  color: var(--color-text-icon);
   font-size: 1.1rem;
 }
 
 .search-input {
   flex: 1;
-  border: none !important;
-  box-shadow: none !important;
+  border: none;
+  box-shadow: none;
   padding: 1rem 0.75rem;
   font-size: 1rem;
   background: transparent;
-  color: #222;
+  color: var(--color-text-dark);
 }
 
 .search-input input {
-  color: #222 !important;
+  color: var(--color-text-dark);
 }
 
 .search-input::placeholder,
 .search-input input::placeholder {
-  color: #777 !important;
+  color: var(--color-text-placeholder);
 }
 
 .search-button {
-  border-radius: 0 !important;
-  padding: 1rem 2rem !important;
+  border-radius: 0;
+  padding: 1rem 2rem;
   font-weight: 600;
   font-size: 1rem;
-  background: #e94560 !important;
-  border-color: #e94560 !important;
+  background: var(--color-secondary);
+  border-color: var(--color-secondary);
 }
 
 .search-button:hover {
-  background: #d63851 !important;
-  border-color: #d63851 !important;
+  background: var(--color-secondary-hover);
+  border-color: var(--color-secondary-hover);
 }
 </style>

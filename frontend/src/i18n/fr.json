@@ -49,7 +49,12 @@
       "loginLink": "Se connecter"
     },
     "error": {
-      "generic": "Une erreur est survenue. Veuillez réessayer."
+      "generic": "Une erreur est survenue. Veuillez réessayer.",
+      "is_required": "Ce champ est obligatoire.",
+      "is_invalid": "Ce champ est invalide.",
+      "already_taken": "Cette adresse email est déjà utilisée.",
+      "min_8_characters": "Le mot de passe doit contenir au moins 8 caractères.",
+      "invalid_credentials": "Email ou mot de passe incorrect."
     }
   }
 }

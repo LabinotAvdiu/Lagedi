@@ -113,7 +113,7 @@ const onSubmit = async () => {
     router.push("/");
   } catch (err) {
     errorMessage.value =
-      err?.errors?.email?.[0] ?? err?.message ?? t("auth.error.generic");
+      t(`auth.error.${err?.errors?.email?.[0]}`) ?? t("auth.error.generic");
   } finally {
     loading.value = false;
   }
@@ -126,12 +126,12 @@ const onSubmit = async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f4f4f4;
+  background: var(--color-bg-page);
   padding: 2rem;
 }
 
 .auth-card {
-  background: #ffffff;
+  background: var(--color-bg-white);
   border-radius: 12px;
   padding: 3rem 2.5rem;
   width: 100%;
@@ -143,7 +143,7 @@ const onSubmit = async () => {
   font-size: 1.4rem;
   font-weight: 700;
   text-align: center;
-  color: #1a1a2e;
+  color: var(--color-primary);
   margin-bottom: 2rem;
 }
 
@@ -162,21 +162,21 @@ const onSubmit = async () => {
 .field label {
   font-size: 0.875rem;
   font-weight: 600;
-  color: #333;
+  color: var(--color-text);
 }
 
 .field :deep(input) {
   width: 100%;
   border-radius: 8px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--color-border);
   padding: 0.65rem 0.875rem;
   font-size: 0.95rem;
-  color: #1a1a2e;
+  color: var(--color-primary);
   transition: border-color 0.2s;
 }
 
 .field :deep(input:focus) {
-  border-color: #1a1a2e;
+  border-color: var(--color-primary);
   outline: none;
   box-shadow: none;
 }
@@ -197,7 +197,7 @@ const onSubmit = async () => {
   background: none;
   border: none;
   cursor: pointer;
-  color: #6b7280;
+  color: var(--color-text-toggle);
   padding: 0;
   display: flex;
   align-items: center;
@@ -205,7 +205,7 @@ const onSubmit = async () => {
 
 .forgot-link {
   font-size: 0.85rem;
-  color: #1a1a2e;
+  color: var(--color-primary);
   text-decoration: underline;
   align-self: flex-start;
   margin-top: 0.25rem;
@@ -213,15 +213,15 @@ const onSubmit = async () => {
 
 .error-message {
   font-size: 0.875rem;
-  color: #dc2626;
+  color: var(--color-text-error);
   text-align: center;
 }
 
 .submit-btn {
   width: 100%;
-  background: #1a1a2e !important;
-  border-color: #1a1a2e !important;
-  color: #ffffff !important;
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-text-light);
   border-radius: 8px;
   padding: 0.75rem;
   font-size: 1rem;
@@ -234,7 +234,7 @@ const onSubmit = async () => {
   align-items: center;
   gap: 1rem;
   margin: 2rem 0;
-  color: #9ca3af;
+  color: var(--color-text-subtle);
   font-size: 0.875rem;
 }
 
@@ -243,7 +243,7 @@ const onSubmit = async () => {
   content: "";
   flex: 1;
   height: 1px;
-  background: #e5e7eb;
+  background: var(--color-separator);
 }
 
 .alt-section {
@@ -256,15 +256,15 @@ const onSubmit = async () => {
 .alt-title {
   font-size: 1.2rem;
   font-weight: 700;
-  color: #1a1a2e;
+  color: var(--color-primary);
   text-align: center;
 }
 
 .alt-btn {
   width: 100%;
   border-radius: 8px;
-  border-color: #1a1a2e !important;
-  color: #1a1a2e !important;
+  border-color: var(--color-primary);
+  color: var(--color-primary);
   padding: 0.75rem;
   font-size: 1rem;
   font-weight: 600;

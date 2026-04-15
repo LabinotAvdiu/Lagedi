@@ -28,14 +28,13 @@
         :model="accountMenuItems"
         popup
       />
-      <select
-        :value="locale"
+      <Select
+        v-model="locale"
+        :options="languages"
+        option-label="label"
+        option-value="value"
         class="lang-selector"
-        @change="onLangChange"
-      >
-        <option value="fr">FR</option>
-        <option value="en">EN</option>
-      </select>
+      />
     </div>
   </header>
 </template>
@@ -46,12 +45,18 @@ import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import Button from "primevue/button";
 import Menu from "primevue/menu";
+import Select from "primevue/select";
 import { isLoggedIn, setLoggedIn } from "../composables/useAuth";
 
 const { t, locale } = useI18n();
 const router = useRouter();
 
 const accountMenu = ref();
+
+const languages = [
+  { label: "FR", value: "fr" },
+  { label: "EN", value: "en" },
+];
 
 const accountMenuItems = computed(() => [
   {
@@ -72,9 +77,7 @@ const onAccountClick = (event) => {
   }
 };
 
-const onLangChange = (event) => {
-  locale.value = event.target.value;
-};
+
 </script>
 
 <style scoped>
@@ -83,7 +86,7 @@ const onLangChange = (event) => {
   justify-content: space-between;
   align-items: center;
   padding: 0.75rem 2rem;
-  background: #1a1a2e;
+  background: var(--color-bg-header);
   position: sticky;
   top: 0;
   z-index: 100;
@@ -93,7 +96,7 @@ const onLangChange = (event) => {
   font-size: 1.6rem;
   font-weight: 800;
   text-decoration: none;
-  color: #ffffff;
+  color: var(--color-text-light);
   letter-spacing: -0.02em;
 }
 
@@ -104,14 +107,14 @@ const onLangChange = (event) => {
 }
 
 .nav-btn {
-  color: #ffffff !important;
-  border-color: rgba(255, 255, 255, 0.7) !important;
+  color: var(--color-text-light);
+  border-color: var(--color-border-hover);
   font-weight: 500;
 }
 
 .nav-btn:hover {
-  background: rgba(255, 255, 255, 0.1) !important;
-  border-color: #ffffff !important;
+  background: var(--color-hover-overlay);
+  border-color: var(--color-text-light);
 }
 
 .account-btn {
@@ -119,18 +122,11 @@ const onLangChange = (event) => {
 }
 
 .lang-selector {
-  padding: 0.35rem 0.5rem;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 6px;
-  cursor: pointer;
-  background: transparent;
-  color: #b0bec5;
+  --p-select-background: transparent;
+  --p-select-border-color: var(--color-border-light);
+  --p-select-color: var(--color-text-muted);
+  --p-select-hover-border-color: var(--color-text-light);
   font-size: 0.85rem;
-}
-
-.lang-selector option {
-  background: #1a1a2e;
-  color: #ffffff;
 }
 
 @media (max-width: 768px) {
