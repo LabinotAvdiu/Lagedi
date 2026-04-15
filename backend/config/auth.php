@@ -42,6 +42,11 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+        // Sanctum guard used by all API routes
+        'sanctum' => [
+            'driver'   => 'sanctum',
+            'provider' => 'users',
+        ],
     ],
 
     /*
