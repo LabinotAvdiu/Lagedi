@@ -57,6 +57,39 @@
       "button": "Créer mon compte gratuitement"
     }
   },
+  "pro": {
+    "badge": "Espace professionnel",
+    "title": "Rejoignez Termini Im en tant que professionnel",
+    "subtitle": "Créez votre espace et gérez vos rendez-vous en ligne.",
+    "activityQuestion": "Exercez-vous dans un local commercial ?",
+    "activityLocal": "Oui, j'ai un local",
+    "activityLocalDesc": "Salon de coiffure, barbershop, institut...",
+    "activityHome": "Non, j'exerce à domicile",
+    "activityHomeDesc": "Je me déplace chez mes clients.",
+    "stepInfo": "Étape 1 — Vos informations",
+    "stepCompany": "Étape 2 — Votre entreprise",
+    "city": "Ville",
+    "cityPlaceholder": "Votre ville",
+    "companyName": "Nom de l'entreprise",
+    "companyNamePlaceholder": "Nom de votre salon / entreprise",
+    "address": "Adresse",
+    "addressPlaceholder": "Adresse complète du salon",
+    "addressHomePlaceholder": "Votre ville ou zone d'intervention",
+    "confirmPassword": "Confirmer le mot de passe",
+    "next": "Continuer",
+    "back": "Retour",
+    "submit": "Créer mon compte pro",
+    "feature1": "Gérez vos rendez-vous",
+    "feature1Desc": "Agenda en ligne, rappels automatiques et zéro appel.",
+    "feature2": "Gagnez en visibilité",
+    "feature2Desc": "Apparaissez dans les résultats de recherche de votre ville.",
+    "feature3": "Tableau de bord",
+    "feature3Desc": "Suivez vos statistiques, avis et revenus en temps réel.",
+    "error": {
+      "fillRequired": "Veuillez remplir le nom et l'email.",
+      "passwordMismatch": "Les mots de passe ne correspondent pas."
+    }
+  },
   "auth": {
     "email": "Email",
     "password": "Mot de passe",

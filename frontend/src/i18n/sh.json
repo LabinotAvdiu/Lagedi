@@ -57,6 +57,39 @@
       "button": "Regjistrohu"
     }
   },
+  "pro": {
+    "badge": "Hapësira profesionale",
+    "title": "Bashkohuni me Termini Im si profesionist",
+    "subtitle": "Krijoni hapësirën tuaj dhe menaxhoni takimet tuaja online.",
+    "stepInfo": "Hapi 1 — Informacionet tuaja",
+    "stepCompany": "Hapi 2 — Biznesi juaj",
+    "city": "Qyteti",
+    "cityPlaceholder": "Qyteti juaj",
+    "activityQuestion": "A punoni në një lokal tregtar?",
+    "activityLocal": "Po, kam një lokal",
+    "activityLocalDesc": "Salon flokësh, berbershop, institut...",
+    "activityHome": "Jo, punoj në shtëpi",
+    "activityHomeDesc": "Shkoj tek klientët e mi.",
+    "companyName": "Emri i kompanisë",
+    "companyNamePlaceholder": "Emri i salonit / biznesit tuaj",
+    "address": "Adresa",
+    "addressPlaceholder": "Adresa e plotë e salonit",
+    "addressHomePlaceholder": "Qyteti ose zona juaj e shërbimit",
+    "confirmPassword": "Konfirmo fjalëkalimin",
+    "next": "Vazhdo",
+    "back": "Kthehu",
+    "submit": "Krijo llogarinë time pro",
+    "feature1": "Menaxhoni takimet",
+    "feature1Desc": "Kalendar online, kujtesa automatike dhe zero thirrje.",
+    "feature2": "Fitoni dukshmëri",
+    "feature2Desc": "Shfaquni në rezultatet e kërkimit në qytetin tuaj.",
+    "feature3": "Paneli i kontrollit",
+    "feature3Desc": "Ndiqni statistikat, vlerësimet dhe të ardhurat në kohë reale.",
+    "error": {
+      "fillRequired": "Ju lutemi plotësoni mbiemrin dhe emailin.",
+      "passwordMismatch": "Fjalëkalimet nuk përputhen."
+    }
+  },
   "auth": {
     "email": "Email",
     "password": "Fjalëkalimi",
