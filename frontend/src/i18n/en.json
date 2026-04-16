@@ -1,8 +1,9 @@
 {
   "app": {
-    "name": "Lagedi"
+    "name": "Termini Im"
   },
   "nav": {
+    "home": "Home",
     "iAmProfessional": "I am a professional",
     "myAccount": "My Account",
     "logout": "Log out"
@@ -10,9 +11,17 @@
   "home": {
     "title": "Book your barber in a few clicks",
     "subtitle": "Find the best barbers near you and book online, 24/7.",
+    "heroDesc": "Browse profiles, read customer reviews, and book your next appointment in seconds.",
     "searchPlaceholder": "Where? (city, neighborhood...)",
     "searchButton": "Search",
+    "stats": {
+      "barbers": "Barbers",
+      "bookings": "Bookings",
+      "cities": "Cities"
+    },
     "features": {
+      "sectionTitle": "Why choose Termini Im?",
+      "heading": "Everything you need to book with confidence",
       "booking": {
         "title": "Instant booking",
         "description": "Pick a slot and book in one click, no need to call."
@@ -25,6 +34,27 @@
         "title": "Available 24/7",
         "description": "Check availability and book anytime."
       }
+    },
+    "howItWorks": {
+      "sectionTitle": "How does it work?",
+      "heading": "Book in 3 simple steps",
+      "step1": {
+        "title": "Search",
+        "description": "Enter your city or neighborhood to find available barbers near you."
+      },
+      "step2": {
+        "title": "Compare",
+        "description": "Browse profiles, reviews, prices, and available time slots for each barber."
+      },
+      "step3": {
+        "title": "Book",
+        "description": "Select your time slot and confirm your appointment in seconds."
+      }
+    },
+    "cta": {
+      "title": "Ready to find your barber?",
+      "subtitle": "Join thousands of users who book every day with Termini Im.",
+      "button": "Create my free account"
     }
   },
   "auth": {
@@ -38,13 +68,13 @@
     "or": "or",
     "togglePassword": "Show/hide password",
     "login": {
-      "title": "Already used Lagedi?",
+      "title": "Already used Termini Im?",
       "submit": "Sign in",
       "forgotPassword": "Forgot password?",
       "createAccount": "Create my account"
     },
     "register": {
-      "title": "New to Lagedi?",
+      "title": "New to Termini Im?",
       "submit": "Create my account",
       "loginLink": "Sign in"
     },

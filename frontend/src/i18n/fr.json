@@ -1,8 +1,9 @@
 {
   "app": {
-    "name": "Lagedi"
+    "name": "Termini Im"
   },
   "nav": {
+    "home": "Accueil",
     "iAmProfessional": "Je suis un professionnel",
     "myAccount": "Mon Compte",
     "logout": "Se déconnecter"
@@ -10,9 +11,17 @@
   "home": {
     "title": "Réservez votre barbier en quelques clics",
     "subtitle": "Trouvez les meilleurs barbiers près de chez vous et réservez en ligne, 24h/24.",
+    "heroDesc": "Parcourez les profils, consultez les avis clients et réservez votre prochain rendez-vous en quelques secondes.",
     "searchPlaceholder": "Où ? (ville, quartier...)",
     "searchButton": "Rechercher",
+    "stats": {
+      "barbers": "Barbiers",
+      "bookings": "Réservations",
+      "cities": "Villes"
+    },
     "features": {
+      "sectionTitle": "Pourquoi choisir Termini Im ?",
+      "heading": "Tout ce qu'il faut pour réserver en toute confiance",
       "booking": {
         "title": "Réservation instantanée",
         "description": "Choisissez un créneau et réservez en un clic, sans appeler."
@@ -25,6 +34,27 @@
         "title": "Disponible 24h/24",
         "description": "Consultez les disponibilités et réservez à tout moment."
       }
+    },
+    "howItWorks": {
+      "sectionTitle": "Comment ça marche ?",
+      "heading": "Réservez en 3 étapes simples",
+      "step1": {
+        "title": "Recherchez",
+        "description": "Entrez votre ville ou quartier pour trouver les barbiers disponibles autour de vous."
+      },
+      "step2": {
+        "title": "Comparez",
+        "description": "Consultez les profils, avis, tarifs et créneaux disponibles de chaque barbier."
+      },
+      "step3": {
+        "title": "Réservez",
+        "description": "Sélectionnez votre créneau et confirmez votre rendez-vous en quelques secondes."
+      }
+    },
+    "cta": {
+      "title": "Prêt à trouver votre barbier ?",
+      "subtitle": "Rejoignez des milliers d'utilisateurs qui réservent chaque jour avec Termini Im.",
+      "button": "Créer mon compte gratuitement"
     }
   },
   "auth": {
@@ -38,13 +68,13 @@
     "or": "ou",
     "togglePassword": "Afficher/masquer le mot de passe",
     "login": {
-      "title": "Vous avez déjà utilisé Lagedi ?",
+      "title": "Vous avez déjà utilisé Termini Im ?",
       "submit": "Se connecter",
       "forgotPassword": "Mot de passe oublié ?",
       "createAccount": "Créer mon compte"
     },
     "register": {
-      "title": "Nouveau sur Lagedi ?",
+      "title": "Nouveau sur Termini Im ?",
       "submit": "Créer mon compte",
       "loginLink": "Se connecter"
     },

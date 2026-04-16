@@ -11,39 +11,70 @@ import AppHeader from "./components/AppHeader.vue";
 
 <style>
 :root {
-  --color-primary: #1a1a2e;
-  --color-secondary: #e94560;
-  --color-secondary-hover: #d63851;
+  --color-primary: #0a0a0a;
+  --color-primary-light: #1a1a1a;
+  --color-accent: #c9a84c;
+  --color-accent-light: #f5e27a;
+  --color-accent-dark: #8b6914;
+  --color-accent-hover: #d4aa50;
+  --color-secondary: #c9a84c;
+  --color-secondary-hover: #a87b2e;
+  --color-white: #ffffff;
+  --color-black: #0a0a0a;
+
+  --color-gold-shine: #bfa14a;
+  --color-gold-mid: #f0d060;
+  --color-gold-glow: #f5e27a;
+
+  --color-accent-a10: rgba(201, 168, 76, 0.1);
+  --color-accent-a12: rgba(201, 168, 76, 0.12);
+  --color-accent-a20: rgba(201, 168, 76, 0.2);
+  --color-accent-a25: rgba(201, 168, 76, 0.25);
+  --color-accent-a30: rgba(201, 168, 76, 0.3);
+  --color-accent-a40: rgba(201, 168, 76, 0.4);
+  --color-accent-a50: rgba(201, 168, 76, 0.5);
+  --color-accent-a06: rgba(201, 168, 76, 0.06);
+  --color-accent-a35: rgba(201, 168, 76, 0.35);
 
   --color-text: #333333;
   --color-text-light: #ffffff;
-  --color-text-muted: #b0bec5;
+  --color-text-muted: #bbbbbb;
   --color-text-subtle: #9ca3af;
   --color-text-dark: #222222;
   --color-text-placeholder: #777777;
   --color-text-icon: #999999;
   --color-text-toggle: #6b7280;
   --color-text-error: #dc2626;
+  --color-text-gold: #c9a84c;
+  --color-text-secondary: #cccccc;
+  --color-text-light-muted: #dddddd;
+
+  --color-white-a75: rgba(255, 255, 255, 0.75);
+  --color-white-a60: rgba(255, 255, 255, 0.6);
+  --color-white-a08: rgba(255, 255, 255, 0.08);
+
+  --color-shadow-dark: rgba(0, 0, 0, 0.25);
 
   --color-bg: #fafafa;
   --color-bg-page: #f4f4f4;
   --color-bg-white: #ffffff;
-  --color-bg-header: var(--color-primary);
+  --color-bg-dark: #0a0a0a;
+  --color-bg-dark-light: #141414;
+  --color-bg-header: rgba(10, 10, 10, 0.7);
 
   --color-border: #d1d5db;
   --color-border-dark: #000000;
-  --color-border-light: rgba(255, 255, 255, 0.2);
-  --color-border-hover: rgba(255, 255, 255, 0.7);
+  --color-border-light: rgba(255, 255, 255, 0.12);
+  --color-border-hover: rgba(201, 168, 76, 0.6);
   --color-separator: #e5e7eb;
 
-  --color-hover-overlay: rgba(255, 255, 255, 0.1);
+  --color-hover-overlay: rgba(255, 255, 255, 0.05);
 
-  /* PrimeVue InputText tokens */
   --p-inputtext-background: var(--color-bg-white);
   --p-inputtext-color: var(--color-primary);
   --p-inputtext-border-color: var(--color-border-dark);
-  --p-inputtext-hover-border-color: var(--color-primary);
-  --p-inputtext-focus-border-color: var(--color-primary);
+  --p-inputtext-hover-border-color: var(--color-accent);
+  --p-inputtext-focus-border-color: var(--color-accent);
   --p-inputtext-placeholder-color: var(--color-text-placeholder);
   --p-inputtext-shadow: none;
 }

@@ -2,18 +2,22 @@
   <header class="app-header">
     <div class="header-left">
       <router-link to="/" class="app-logo">
-        {{ t("app.name") }}
+        <span class="brand-name">Termini Im</span>
       </router-link>
     </div>
+    <nav class="header-center">
+      <router-link to="/" class="nav-link">{{ t("nav.home") }}</router-link>
+    </nav>
     <div class="header-right">
-      <Button :label="t('nav.iAmProfessional')" outlined class="nav-btn" />
+      <router-link to="/pro" class="nav-link nav-link--pro">
+        <i class="pi pi-briefcase" />
+        {{ t("nav.iAmProfessional") }}
+      </router-link>
       <Button
         :label="t('nav.myAccount')"
-        severity="contrast"
         rounded
         class="account-btn"
-        :icon="isLoggedIn ? 'pi pi-check-circle' : undefined"
-        icon-pos="right"
+        :icon="isLoggedIn ? 'pi pi-user-check' : 'pi pi-user'"
         @click="onAccountClick"
       />
       <Menu ref="accountMenu" :model="accountMenuItems" popup />
@@ -45,6 +49,7 @@ const accountMenu = ref();
 const languages = [
   { label: "FR", value: "fr" },
   { label: "EN", value: "en" },
+  { label: "SH", value: "sh" },
 ];
 
 const accountMenuItems = computed(() => [
@@ -72,56 +77,111 @@ const onAccountClick = (event) => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.75rem 2rem;
-  background: var(--color-bg-header);
+  padding: 0.6rem 2rem;
+  background: var(--color-black);
+  border-bottom: 1px solid var(--color-accent-a25);
   position: sticky;
   top: 0;
   z-index: 100;
 }
 
+.header-left {
+  flex: 1;
+}
+
 .app-logo {
-  font-size: 1.6rem;
-  font-weight: 800;
+  display: flex;
+  align-items: center;
   text-decoration: none;
-  color: var(--color-text-light);
-  letter-spacing: -0.02em;
+}
+
+.brand-name {
+  font-family: "Cinzel", serif;
+  font-size: 1.6rem;
+  font-weight: 900;
+  background: linear-gradient(
+    135deg,
+    var(--color-gold-shine) 0%,
+    var(--color-gold-mid) 30%,
+    var(--color-accent) 50%,
+    var(--color-gold-glow) 70%,
+    var(--color-accent-dark) 100%
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: 0.08em;
+  filter: drop-shadow(0 1px 6px var(--color-accent-a50));
+}
+
+.header-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+}
+
+.nav-link {
+  color: var(--color-white);
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: color 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.nav-link:hover,
+.nav-link.router-link-active,
+.nav-link.router-link-exact-active {
+  color: var(--color-white);
+}
+
+.nav-link--pro {
+  border: 2px solid var(--color-accent);
+  border-radius: 20px;
+  padding: 0.3rem 0.9rem;
+  color: var(--color-white);
 }
 
 .header-right {
+  flex: 1;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-}
-
-.nav-btn {
-  color: var(--color-text-light);
-  border-color: var(--color-border-hover);
-  font-weight: 500;
-}
-
-.nav-btn:hover {
-  background: var(--color-hover-overlay);
-  border-color: var(--color-text-light);
+  justify-content: flex-end;
+  gap: 0.75rem;
 }
 
 .account-btn {
   font-weight: 600;
+  font-size: 0.875rem;
 }
 
 .lang-selector {
   --p-select-background: transparent;
-  --p-select-border-color: var(--color-border-light);
-  --p-select-color: var(--color-text-muted);
-  --p-select-hover-border-color: var(--color-text-light);
+  --p-select-border-color: var(--color-accent);
+  --p-select-color: var(--color-white);
+  --p-select-hover-border-color: var(--color-gold-mid);
+  --p-select-focus-border-color: var(--color-gold-mid);
   font-size: 0.85rem;
+  color: var(--color-white);
+  border: 1px solid var(--color-accent);
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.lang-selector :deep(.p-select-label),
+.lang-selector :deep(.p-select-dropdown) {
+  color: var(--color-white);
 }
 
 @media (max-width: 768px) {
   .app-header {
-    padding: 0.75rem 1rem;
+    padding: 0.6rem 1rem;
   }
 
-  .nav-btn {
+  .header-center {
     display: none;
   }
 }

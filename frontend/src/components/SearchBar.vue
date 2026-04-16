@@ -39,7 +39,7 @@ const onSearch = () => {
   width: 100%;
   border-radius: 50px;
   overflow: hidden;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 4px 20px var(--color-shadow-dark);
 }
 
 .search-input-wrapper {
@@ -79,12 +79,5 @@ const onSearch = () => {
   padding: 1rem 2rem;
   font-weight: 600;
   font-size: 1rem;
-  background: var(--color-secondary);
-  border-color: var(--color-secondary);
-}
-
-.search-button:hover {
-  background: var(--color-secondary-hover);
-  border-color: var(--color-secondary-hover);
 }
 </style>
