@@ -240,7 +240,9 @@ const onSubmit = async () => {
   padding: 0.75rem 0.875rem 0.75rem 2.5rem;
   font-size: 0.95rem;
   color: var(--color-white);
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
 }
 
 .input-wrapper :deep(input::placeholder) {

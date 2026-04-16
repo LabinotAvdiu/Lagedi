@@ -10,13 +10,13 @@ async function request(endpoint, body) {
     body: JSON.stringify(body),
   });
 
-  const data = await response.json();
+  const json = await response.json();
 
   if (!response.ok) {
-    throw data;
+    throw json;
   }
 
-  return data;
+  return json.data ?? json;
 }
 
 export const authService = {

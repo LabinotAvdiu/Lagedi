@@ -175,9 +175,7 @@ const onSubmit = async () => {
 
     router.push("/");
   } catch (err) {
-    const firstError = err?.errors
-      ? Object.values(err.errors)[0]?.[0]
-      : null;
+    const firstError = err?.errors ? Object.values(err.errors)[0]?.[0] : null;
     errorMessage.value = firstError ?? err?.message ?? t("auth.error.generic");
   } finally {
     loading.value = false;
@@ -313,7 +311,9 @@ const onSubmit = async () => {
   padding: 0.75rem 0.875rem 0.75rem 2.5rem;
   font-size: 0.95rem;
   color: var(--color-white);
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
 }
 
 .input-wrapper :deep(input::placeholder) {

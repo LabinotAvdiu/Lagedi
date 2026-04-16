@@ -60,8 +60,8 @@
   "auth": {
     "email": "Email",
     "password": "Mot de passe",
-    "name": "Nom",
     "firstName": "Prénom",
+    "lastName": "Nom",
     "phone": "Téléphone portable",
     "phonePlaceholder": "Entrer votre numéro...",
     "optional": "(facultatif)",
@@ -80,11 +80,8 @@
     },
     "error": {
       "generic": "Une erreur est survenue. Veuillez réessayer.",
-      "is_required": "Ce champ est obligatoire.",
-      "is_invalid": "Ce champ est invalide.",
-      "already_taken": "Cette adresse email est déjà utilisée.",
-      "min_8_characters": "Le mot de passe doit contenir au moins 8 caractères.",
-      "invalid_credentials": "Email ou mot de passe incorrect."
+      "invalid_credentials": "Email ou mot de passe incorrect.",
+      "account_locked": "Compte temporairement verrouillé. Réessayez plus tard."
     }
   }
 }
