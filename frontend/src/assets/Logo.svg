@@ -1,0 +1,36 @@
+<svg viewBox="0 0 800 410" xmlns="http://www.w3.org/2000/svg" role="img">
+  <title style="fill:rgb(0, 0, 0);stroke:none;color:rgb(251, 251, 254);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto">Termini Im — Logo texte</title>
+
+  <defs>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#F5E27A"/>
+      <stop offset="30%" style="stop-color:#C9A84C"/>
+      <stop offset="60%" style="stop-color:#A87B2E"/>
+      <stop offset="100%" style="stop-color:#C9A84C"/>
+    </linearGradient>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a1a"/>
+      <stop offset="100%" style="stop-color:#0a0a0a"/>
+    </linearGradient>
+    <linearGradient id="goldSub" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#D4AA50"/>
+      <stop offset="100%" style="stop-color:#8B6914"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Fond noir -->
+  <rect width="800" height="400" rx="18" fill="url(#bgGrad)" style="stroke:none;color:rgb(251, 251, 254);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+  <!-- Ligne décorative fine au-dessus -->
+  <line x1="200" y1="148" x2="600" y2="148" stroke="url(#goldGrad)" stroke-width="0.6" opacity="0.5" style="fill:rgb(0, 0, 0);color:rgb(251, 251, 254);stroke-width:0.6px;stroke-linecap:butt;stroke-linejoin:miter;opacity:0.5;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+  <!-- Nom principal -->
+  <text x="400" y="230" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="82" font-weight="bold" letter-spacing="18" fill="url(#goldGrad)" style="stroke:none;color:rgb(251, 251, 254);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Georgia, &quot;Times New Roman&quot;, serif;font-size:82px;font-weight:700;text-anchor:middle;dominant-baseline:auto">TERMINI IM</text>
+
+  <!-- Ligne décorative fine en-dessous -->
+  <line x1="200" y1="252" x2="600" y2="252" stroke="url(#goldGrad)" stroke-width="0.6" opacity="0.5" style="fill:rgb(0, 0, 0);color:rgb(251, 251, 254);stroke-width:0.6px;stroke-linecap:butt;stroke-linejoin:miter;opacity:0.5;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+  <!-- Slogan -->
+  <text x="400" y="295" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="14" letter-spacing="6" fill="url(#goldSub)" style="stroke:none;color:rgb(251, 251, 254);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Georgia, &quot;Times New Roman&quot;, serif;font-size:14px;font-weight:400;text-anchor:middle;dominant-baseline:auto">ÇDO PRERJE FILLON KËTU</text>
+
+</svg>

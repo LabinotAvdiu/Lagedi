@@ -1,0 +1,90 @@
+{
+  "app": {
+    "name": "Termini Im"
+  },
+  "nav": {
+    "home": "Faqja Kryesore",
+    "iAmProfessional": "Jam profesionist",
+    "myAccount": "Kyçu",
+    "logout": "Dil"
+  },
+  "home": {
+    "title": "Rezervoni berberin tuaj me disa klikime",
+    "subtitle": "Gjeni berberët më të mirë pranë jush dhe rezervoni online, 24/7.",
+    "heroDesc": "Shfletoni profilet, lexoni vlerësimet e klientëve dhe rezervoni takimin tuaj të radhës në sekonda.",
+    "searchPlaceholder": "Ku? (qyteti, lagjja...)",
+    "searchButton": "Kërko",
+    "stats": {
+      "barbers": "Berberë",
+      "bookings": "Rezervime",
+      "cities": "Qytete"
+    },
+    "features": {
+      "sectionTitle": "Pse të zgjidhni Termini Im?",
+      "heading": "Gjithçka që ju nevojitet për të rezervuar me besim",
+      "booking": {
+        "title": "Rezervim i menjëhershëm",
+        "description": "Zgjidhni një orar dhe rezervoni me një klikim, pa thirrur."
+      },
+      "barbers": {
+        "title": "Berberë të verifikuar",
+        "description": "Profesionistë të vlerësuar dhe të rekomanduar nga komuniteti."
+      },
+      "available": {
+        "title": "I disponueshëm 24/7",
+        "description": "Shikoni disponueshmërinë dhe rezervoni në çdo kohë."
+      }
+    },
+    "howItWorks": {
+      "sectionTitle": "Si funksionon?",
+      "heading": "Rezervoni në 3 hapa të thjeshtë",
+      "step1": {
+        "title": "Kërkoni",
+        "description": "Shkruani qytetin ose lagjen tuaj për të gjetur berberët e disponueshëm pranë jush."
+      },
+      "step2": {
+        "title": "Krahasoni",
+        "description": "Shikoni profilet, vlerësimet, çmimet dhe oraret e disponueshme të çdo berberi."
+      },
+      "step3": {
+        "title": "Rezervoni",
+        "description": "Zgjidhni orarin tuaj dhe konfirmoni takimin tuaj në disa sekonda."
+      }
+    },
+    "cta": {
+      "title": "Gati të gjeni berberin tuaj?",
+      "subtitle": "Bashkohuni me mijëra përdorues që rezervojnë çdo ditë me Termini Im.",
+      "button": "Regjistrohu"
+    }
+  },
+  "auth": {
+    "email": "Email",
+    "password": "Fjalëkalimi",
+    "name": "Mbiemri",
+    "firstName": "Emri",
+    "phone": "Telefoni celular",
+    "phonePlaceholder": "Shkruani numrin tuaj...",
+    "optional": "(opsionale)",
+    "or": "ose",
+    "togglePassword": "Shfaq/fshih fjalëkalimin",
+    "login": {
+      "title": "Keni përdorur Termini Im më parë?",
+      "submit": "Hyni",
+      "forgotPassword": "Keni harruar fjalëkalimin?",
+      "createAccount": "Krijo llogarinë time"
+    },
+    "register": {
+      "title": "I ri në Termini Im?",
+      "submit": "Krijo llogarinë time",
+      "loginLink": "Hyni"
+    },
+    "error": {
+      "generic": "Ndodhi një gabim. Ju lutemi provoni përsëri.",
+      "is_required": "Kjo fushë është e detyrueshme.",
+      "is_invalid": "Kjo fushë është e pavlefshme.",
+      "already_taken": "Kjo adresë email është e zënë.",
+      "min_8_characters": "Fjalëkalimi duhet të ketë të paktën 8 karaktere.",
+      "invalid_credentials": "Email ose fjalëkalim i gabuar."
+    }
+  }
+}
