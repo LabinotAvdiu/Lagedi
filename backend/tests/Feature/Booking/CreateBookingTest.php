@@ -276,7 +276,7 @@ class CreateBookingTest extends TestCase
             'date_time'  => $dateTime,
         ]);
 
-        $response->assertStatus(422)
+        $response->assertStatus(409)
             ->assertJsonPath('success', false);
     }
 
