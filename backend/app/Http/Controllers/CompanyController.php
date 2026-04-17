@@ -860,7 +860,10 @@ class CompanyController extends Controller
             }
         }
 
-        $date    = Carbon::createFromFormat('Y-m-d', $request->validated('date'))->startOfDay();
+        $rawDate = $request->validated('date');
+        $date    = $rawDate
+            ? Carbon::createFromFormat('Y-m-d', $rawDate)->startOfDay()
+            : Carbon::today();
         $dateStr = $date->format('Y-m-d');
         $now     = Carbon::now();
 

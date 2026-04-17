@@ -16,7 +16,7 @@ class GetSlotsRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'date'        => ['required', 'date_format:Y-m-d'],
+            'date'        => ['sometimes', 'nullable', 'date_format:Y-m-d'],
             'employee_id' => ['nullable', 'integer', 'exists:company_user,id'],
             'service_id'  => ['nullable', 'integer', 'exists:services,id'],
         ];

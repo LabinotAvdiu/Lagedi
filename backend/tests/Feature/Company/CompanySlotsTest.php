@@ -112,14 +112,15 @@ class CompanySlotsTest extends TestCase
     // Slots — Authentication
     // -------------------------------------------------------------------------
 
-    public function testSlotsRequiresAuth(): void
+    public function testSlotsIsPublicRoute(): void
     {
+        // Route is intentionally public (no auth:sanctum) — guest access allowed.
         $company = $this->createCompany();
         $date    = Carbon::tomorrow()->format('Y-m-d');
 
         $response = $this->getJson("/api/companies/{$company->id}/slots?date={$date}");
 
-        $response->assertStatus(401);
+        $response->assertOk();
     }
 
     // -------------------------------------------------------------------------

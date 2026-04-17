@@ -34,11 +34,12 @@ class CompanyListTest extends TestCase
     // Tests
     // -------------------------------------------------------------------------
 
-    public function testListCompaniesRequiresAuth(): void
+    public function testListCompaniesIsPublicRoute(): void
     {
+        // Route is intentionally public (no auth:sanctum) — guest access allowed.
         $response = $this->getJson('/api/companies');
 
-        $response->assertStatus(401);
+        $response->assertOk();
     }
 
     public function testListCompaniesReturnsPaginatedResults(): void
