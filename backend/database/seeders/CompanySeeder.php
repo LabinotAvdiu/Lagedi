@@ -23,22 +23,25 @@ class CompanySeeder extends Seeder
         // =====================================================================
         // Test clients
         // =====================================================================
-        User::create([
-            'first_name' => 'Test',
-            'last_name'  => 'User',
-            'email'      => 'test@test.com',
-            'password'   => Hash::make('123456789'),
-            'phone'      => '0600000000',
-            'city'       => 'Paris',
-        ]);
+        User::updateOrCreate(
+            ['email' => 'test@test.com'],
+            [
+                'first_name' => 'Test',
+                'last_name'  => 'User',
+                'password'   => Hash::make('123456789'),
+                'phone'      => '0600000000',
+                'city'       => 'Paris',
+            ],
+        );
 
-        User::create([
-            'first_name' => 'Test',
-            'last_name'  => 'Client',
-            'email'      => 'client@test.com',
-            'password'   => Hash::make('Password1'),
-            'phone'      => '0600000001',
-            'city'       => 'Paris',
+        User::updateOrCreate(
+            ['email' => 'client@test.com'],
+            [
+                'first_name' => 'Test',
+                'last_name'  => 'Client',
+                'password'   => Hash::make('Password1'),
+                'phone'      => '0600000001',
+                'city'       => 'Paris',
         ]);
 
         // =====================================================================
@@ -73,7 +76,7 @@ class CompanySeeder extends Seeder
         $c1CatBarbe  = ServiceCategory::create(['company_id' => $company1->id, 'name' => 'Barbe']);
         $c1CatSoins  = ServiceCategory::create(['company_id' => $company1->id, 'name' => 'Soins']);
 
-        // Owner
+        // Owner — user.role=company so the Flutter app shows the owner dashboard
         $owner1 = User::create([
             'first_name' => 'Karim',
             'last_name'  => 'Benali',
@@ -81,6 +84,7 @@ class CompanySeeder extends Seeder
             'password'   => Hash::make('Password1'),
             'phone'      => '0600000010',
             'city'       => 'Paris',
+            'role'       => \App\Enums\UserRole::Company,
         ]);
         $cuOwner1 = CompanyUser::create([
             'company_id'  => $company1->id,
@@ -218,6 +222,7 @@ class CompanySeeder extends Seeder
             'password'   => Hash::make('Password1'),
             'phone'      => '0600000020',
             'city'       => 'Lyon',
+            'role'       => \App\Enums\UserRole::Company,
         ]);
         $cuOwner2 = CompanyUser::create([
             'company_id'  => $company2->id,
@@ -364,6 +369,7 @@ class CompanySeeder extends Seeder
             'password'   => Hash::make('Password1'),
             'phone'      => '0600000030',
             'city'       => 'Paris',
+            'role'       => 'company',
         ]);
         $cuOwner3 = CompanyUser::create([
             'company_id'  => $company3->id,
@@ -510,6 +516,7 @@ class CompanySeeder extends Seeder
             'password'   => Hash::make('Password1'),
             'phone'      => '0600000040',
             'city'       => 'Marseille',
+            'role'       => 'company',
         ]);
         $cuOwner4 = CompanyUser::create([
             'company_id'  => $company4->id,

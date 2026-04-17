@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Enums\UserRole;
+use App\Http\Requests\Auth\ChangePasswordRequest;
 use App\Http\Requests\Auth\ForgotPasswordRequest;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RefreshTokenRequest;
@@ -21,6 +22,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 
@@ -41,6 +43,7 @@ class AuthController extends Controller
                 'phone'      => $data['phone'] ?? null,
                 'city'       => $data['city'] ?? null,
                 'role'       => $role,
+                'locale'     => $data['locale'] ?? 'fr',
             ]);
 
             if ($role === UserRole::Company->value) {
@@ -157,30 +160,101 @@ class AuthController extends Controller
         return new UserResource($request->user()->fresh());
     }
 
+    // PUT /auth/change-password
+    public function changePassword(ChangePasswordRequest $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if (! Hash::check($request->validated('current_password'), $user->password)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Le mot de passe actuel est incorrect',
+                'errors'  => ['current_password' => ['Le mot de passe actuel est incorrect']],
+            ], 422);
+        }
+
+        $user->update([
+            'password' => Hash::make($request->validated('password')),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Mot de passe modifié avec succès',
+        ]);
+    }
+
     // POST /auth/google
-    public function googleLogin(Request $request): JsonResponse
+    public function googleLogin(Request $request): AuthResource|JsonResponse
     {
         $request->validate([
             'id_token' => ['required', 'string'],
         ]);
 
-        // TODO: Verify id_token with Google
-        return response()->json([
-            'errors' => ['provider' => ['not_configured']],
-        ], 501);
+        $response = Http::get('https://oauth2.googleapis.com/tokeninfo', [
+            'id_token' => $request->input('id_token'),
+        ]);
+
+        if ($response->failed() || empty($response->json('email'))) {
+            return response()->json([
+                'errors' => ['id_token' => ['invalid_or_expired']],
+            ], 401);
+        }
+
+        $payload = $response->json();
+
+        $name      = $payload['name'] ?? trim(($payload['given_name'] ?? '') . ' ' . ($payload['family_name'] ?? ''));
+        $nameParts = explode(' ', $name, 2);
+
+        $user = User::firstOrCreate(
+            ['email' => $payload['email']],
+            [
+                'first_name'        => $nameParts[0] ?? '',
+                'last_name'         => $nameParts[1] ?? '',
+                'password'          => Hash::make(Str::random(32)),
+                'role'              => 'user',
+                'email_verified_at' => now(),
+            ]
+        );
+
+        [$accessToken, $refreshToken] = $this->issueTokenPair($user);
+
+        return new AuthResource($user, $accessToken, $refreshToken);
     }
 
     // POST /auth/facebook
-    public function facebookLogin(Request $request): JsonResponse
+    public function facebookLogin(Request $request): AuthResource|JsonResponse
     {
         $request->validate([
             'access_token' => ['required', 'string'],
         ]);
 
-        // TODO: Verify with Facebook Graph API
-        return response()->json([
-            'errors' => ['provider' => ['not_configured']],
-        ], 501);
+        $response = Http::get('https://graph.facebook.com/me', [
+            'fields'       => 'id,name,email,first_name,last_name,picture',
+            'access_token' => $request->input('access_token'),
+        ]);
+
+        if ($response->failed() || empty($response->json('email'))) {
+            return response()->json([
+                'errors' => ['access_token' => ['invalid_or_expired']],
+            ], 401);
+        }
+
+        $payload = $response->json();
+
+        $user = User::firstOrCreate(
+            ['email' => $payload['email']],
+            [
+                'first_name'        => $payload['first_name'] ?? explode(' ', $payload['name'] ?? '', 2)[0] ?? '',
+                'last_name'         => $payload['last_name']  ?? explode(' ', $payload['name'] ?? '', 2)[1] ?? '',
+                'password'          => Hash::make(Str::random(32)),
+                'role'              => 'user',
+                'email_verified_at' => now(),
+            ]
+        );
+
+        [$accessToken, $refreshToken] = $this->issueTokenPair($user);
+
+        return new AuthResource($user, $accessToken, $refreshToken);
     }
 
     // POST /auth/forgot-password

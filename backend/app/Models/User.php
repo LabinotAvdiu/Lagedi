@@ -32,6 +32,8 @@ class User extends Authenticatable implements MustVerifyEmail
         'profile_image_url',
         'failed_login_attempts',
         'locked_until',
+        'locale',
+        'email_verified_at',
     ];
 
     protected $hidden = [
@@ -98,7 +100,7 @@ class User extends Authenticatable implements MustVerifyEmail
             ['token', 'expires_at', 'created_at'] // columns to update on conflict
         );
 
-        $this->notify(new VerifyEmailNotification($plainToken));
+        $this->notify((new VerifyEmailNotification($plainToken))->locale($this->locale ?? 'fr'));
     }
 
     // -------------------------------------------------------------------------

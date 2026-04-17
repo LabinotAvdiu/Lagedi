@@ -21,6 +21,7 @@ class UpdateProfileRequest extends FormRequest
             'phone'             => ['sometimes', 'nullable', 'string', 'max:20'],
             'city'              => ['sometimes', 'nullable', 'string', 'max:100'],
             'profile_image_url' => ['sometimes', 'nullable', 'url', 'max:2048'],
+            'locale'            => ['sometimes', 'nullable', 'string', 'in:fr,en,sq'],
         ];
     }
 }

@@ -9,6 +9,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 #[Fillable(['company_id', 'date', 'reason'])]
 class CompanyDayOff extends Model
 {
+    protected $table = 'company_days_off';
+
     protected function casts(): array
     {
         return [

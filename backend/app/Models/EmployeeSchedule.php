@@ -7,13 +7,14 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['company_user_id', 'day_of_week', 'start_time', 'end_time'])]
+#[Fillable(['company_user_id', 'day_of_week', 'start_time', 'end_time', 'is_working'])]
 class EmployeeSchedule extends Model
 {
     protected function casts(): array
     {
         return [
             'day_of_week' => DayOfWeek::class,
+            'is_working'  => 'boolean',
         ];
     }
 

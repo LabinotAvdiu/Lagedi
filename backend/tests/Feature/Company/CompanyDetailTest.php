@@ -38,13 +38,14 @@ class CompanyDetailTest extends TestCase
     // GET /api/companies/{id}
     // -------------------------------------------------------------------------
 
-    public function testShowCompanyRequiresAuth(): void
+    public function testShowCompanyIsPublicRoute(): void
     {
         $company = $this->createCompany();
 
+        // Route is intentionally public (no auth:sanctum) — guest access allowed.
         $response = $this->getJson("/api/companies/{$company->id}");
 
-        $response->assertStatus(401);
+        $response->assertOk();
     }
 
     public function testShowCompanyReturnsFullDetail(): void
@@ -200,13 +201,14 @@ class CompanyDetailTest extends TestCase
     // GET /api/companies/{id}/employees
     // -------------------------------------------------------------------------
 
-    public function testEmployeesRequiresAuth(): void
+    public function testEmployeesIsPublicRoute(): void
     {
         $company = $this->createCompany();
 
+        // Route is intentionally public (no auth:sanctum) — guest access allowed.
         $response = $this->getJson("/api/companies/{$company->id}/employees");
 
-        $response->assertStatus(401);
+        $response->assertOk();
     }
 
     public function testEmployeesReturnsActiveEmployees(): void

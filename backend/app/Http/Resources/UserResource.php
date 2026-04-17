@@ -32,8 +32,12 @@ class UserResource extends JsonResource
             'phone'           => $this->phone,
             'city'            => $this->city,
             'role'            => $this->role?->value ?? 'user',
+            'companyRole'     => \DB::table('company_user')
+                ->where('user_id', $this->id)
+                ->value('role'),
             'profileImageUrl' => $this->profile_image_url,
             'emailVerified'   => $this->email_verified_at !== null,
+            'locale'          => $this->locale ?? 'fr',
         ];
     }
 }

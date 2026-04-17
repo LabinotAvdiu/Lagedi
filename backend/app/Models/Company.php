@@ -22,7 +22,9 @@ class Company extends Model
     protected function casts(): array
     {
         return [
-            'location'     => 'array',
+            // 'location' is a MySQL POINT (binary geometry) — do NOT cast to 'array'.
+            // json_decode() on a binary POINT blob throws errors and adds overhead.
+            // Use DB::raw('ST_AsGeoJSON(location)') in queries that need coordinates.
             'gender'       => Gender::class,
             'rating'       => 'decimal:2',
             'review_count' => 'integer',
