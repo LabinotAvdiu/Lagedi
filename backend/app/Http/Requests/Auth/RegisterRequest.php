@@ -26,6 +26,7 @@ class RegisterRequest extends FormRequest
             'phone'        => ['nullable', 'string', 'max:20'],
             'city'         => ['nullable', 'string', 'max:100'],
             'role'         => ['nullable', 'string', 'in:user,company'],
+            'locale'       => ['nullable', 'string', 'in:fr,en'],
 
             // Company-specific fields — required only when role=company
             'company_name' => [$isCompany ? 'required' : 'nullable', 'string', 'max:255'],
