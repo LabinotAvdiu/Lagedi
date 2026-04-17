@@ -37,6 +37,12 @@ composer-install:
 migrate:
 	docker-compose exec php php artisan migrate
 
+# Run database seeders
+#   make seed                          → run all seeders (DatabaseSeeder)
+#   make seed class=CompanySeeder      → run a specific seeder
+seed:
+	docker-compose exec php php artisan db:seed $(if $(class),--class=$(class),)
+
 # Run PHPUnit tests
 #   make test                                        → all tests
 #   make test file=RegisterTest                      → a specific file/class
