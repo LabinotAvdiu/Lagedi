@@ -246,8 +246,7 @@ class CompanyListTest extends TestCase
                         'rating',
                         'reviewCount',
                         'priceLevel',
-                        'morningSlots',
-                        'afternoonSlots',
+                        'availability',
                     ],
                 ],
             ]);

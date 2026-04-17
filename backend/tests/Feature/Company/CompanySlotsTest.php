@@ -136,15 +136,17 @@ class CompanySlotsTest extends TestCase
         $response->assertStatus(404);
     }
 
-    public function testSlotsRequiredDateParam(): void
+    public function testSlotsDateParamIsOptional(): void
     {
         $this->auth();
         $company = $this->createCompany();
 
+        // date is now optional — defaults to today, returns 200 with an empty data
+        // array (no opening hours defined for this company)
         $response = $this->getJson("/api/companies/{$company->id}/slots");
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['date']);
+        $response->assertOk()
+            ->assertJsonPath('data', []);
     }
 
     // -------------------------------------------------------------------------
@@ -186,18 +188,26 @@ class CompanySlotsTest extends TestCase
         $this->auth();
         $company  = $this->createCompany();
         $tomorrow = Carbon::tomorrow();
+        $date     = $tomorrow->format('Y-m-d');
 
+        // Only open on tomorrow's day-of-week → only that day produces slots
         $this->openOn($company, $tomorrow, '09:00:00', '11:00:00');
 
-        $response = $this->getJson("/api/companies/{$company->id}/slots?date={$tomorrow->format('Y-m-d')}");
+        $response = $this->getJson("/api/companies/{$company->id}/slots?date={$date}");
 
         $response->assertOk();
         $slots = $response->json('data');
 
-        // 09:00 to 11:00 = 4 slots (09:00, 09:30, 10:00, 10:30)
-        $this->assertCount(4, $slots);
+        // Filter to just tomorrow's slots — the endpoint now spans 14 days
+        // but this company only has hours for one day-of-week.
+        $daySlots = array_values(
+            array_filter($slots, fn ($s) => str_starts_with($s['dateTime'], $date))
+        );
 
-        $times = array_column($slots, 'dateTime');
+        // 09:00 to 11:00 = 4 slots (09:00, 09:30, 10:00, 10:30)
+        $this->assertCount(4, $daySlots);
+
+        $times = array_column($daySlots, 'dateTime');
         $this->assertStringEndsWith('T09:00:00', $times[0]);
         $this->assertStringEndsWith('T09:30:00', $times[1]);
         $this->assertStringEndsWith('T10:00:00', $times[2]);
@@ -389,15 +399,24 @@ class CompanySlotsTest extends TestCase
         $this->auth();
         $company  = $this->createCompany();
         $tomorrow = Carbon::tomorrow();
+        $date     = $tomorrow->format('Y-m-d');
 
+        // Only open on tomorrow's day-of-week → only that day produces slots
         $this->openOn($company, $tomorrow, '09:00:00', '11:00:00');
         $this->createActiveEmployee($company);
         $this->createActiveEmployee($company);
 
-        $response = $this->getJson("/api/companies/{$company->id}/slots?date={$tomorrow->format('Y-m-d')}");
+        $response = $this->getJson("/api/companies/{$company->id}/slots?date={$date}");
 
         $response->assertOk();
-        $this->assertCount(4, $response->json('data'));
+
+        // Filter to just tomorrow's slots — the endpoint now spans 14 days
+        $daySlots = array_filter(
+            $response->json('data'),
+            fn ($s) => str_starts_with($s['dateTime'], $date)
+        );
+
+        $this->assertCount(4, $daySlots);
     }
 
     public function testSlotsWithoutEmployeeIdIgnoresPendingStatusAsBooked(): void

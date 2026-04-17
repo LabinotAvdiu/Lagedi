@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
-    'company_id', 'user_id', 'role', 'profile_photo', 'is_active',
+    'company_id', 'user_id', 'role', 'profile_photo', 'is_active', 'specialties',
 ])]
 class CompanyUser extends Model
 {
@@ -38,6 +38,11 @@ class CompanyUser extends Model
     public function schedules(): HasMany
     {
         return $this->hasMany(EmployeeSchedule::class);
+    }
+
+    public function breaks(): HasMany
+    {
+        return $this->hasMany(EmployeeBreak::class);
     }
 
     public function daysOff(): HasMany

@@ -44,6 +44,14 @@ class Service extends Model
             ->withTimestamps();
     }
 
+    /**
+     * Alias of companyUsers() — more expressive name for the booking flow.
+     */
+    public function employees(): BelongsToMany
+    {
+        return $this->companyUsers();
+    }
+
     public function appointments(): HasMany
     {
         return $this->hasMany(Appointment::class);
