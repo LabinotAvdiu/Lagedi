@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Enums\AppointmentStatus;
+use App\Enums\BookingMode;
 use App\Http\Requests\Booking\StoreBookingRequest;
 use App\Http\Resources\AppointmentResource;
 use App\Http\Resources\MyAppointmentResource;
 use App\Models\Appointment;
 use App\Models\Company;
+use App\Models\CompanyBreak;
+use App\Models\CompanyDayOff;
 use App\Models\CompanyUser;
 use App\Models\EmployeeBreak;
 use App\Models\EmployeeSchedule;
@@ -17,6 +20,7 @@ use App\Models\Service;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class BookingController extends Controller
@@ -61,6 +65,20 @@ class BookingController extends Controller
     {
         $validated = $request->validated();
 
+        $companyId = (int) $validated['company_id'];
+        $company   = Company::find($companyId);
+
+        if (! $company) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Company not found.',
+            ], 404);
+        }
+
+        $mode = $company->booking_mode instanceof BookingMode
+            ? $company->booking_mode
+            : BookingMode::from((string) $company->booking_mode);
+
         $service = Service::findOrFail((int) $validated['service_id']);
 
         $start = Carbon::createFromFormat('Y-m-d\TH:i:s', $validated['date_time']);
@@ -69,24 +87,112 @@ class BookingController extends Controller
         $date      = $start->toDateString();
         $startTime = $start->format('H:i:s');
         $endTime   = $end->format('H:i:s');
-        $companyId = (int) $validated['company_id'];
-
-        // Everything runs inside a transaction so the FOR UPDATE lock is held
-        // until the INSERT completes — preventing two users from booking the
-        // same slot simultaneously.
         $serviceId = (int) $validated['service_id'];
 
-        // Compute the enum day-of-week value (Mon=0 … Sun=6) for the slot date
-        // so we can match against employee_breaks.day_of_week.
+        // Compute the enum day-of-week value (Mon=0 … Sun=6)
         $slotCarbon    = Carbon::createFromFormat('Y-m-d', $date);
-        $slotCarbonDow = (int) $slotCarbon->dayOfWeek;           // Carbon: Sun=0
-        $slotEnumDow   = $slotCarbonDow === 0 ? 6 : $slotCarbonDow - 1; // DayOfWeek enum
+        $slotCarbonDow = (int) $slotCarbon->dayOfWeek;
+        $slotEnumDow   = $slotCarbonDow === 0 ? 6 : $slotCarbonDow - 1;
 
+        if ($mode === BookingMode::CapacityBased) {
+            $result = DB::transaction(function () use ($request, $validated, $company, $service, $companyId, $serviceId, $date, $startTime, $endTime, $slotEnumDow) {
+                // Check for company day-off
+                $isDayOff = CompanyDayOff::where('company_id', $companyId)
+                    ->where('date', $date)
+                    ->exists();
+
+                if ($isDayOff) {
+                    return ['error' => 'day_off'];
+                }
+
+                // Check company breaks — block if slot start falls in break window
+                $onBreak = CompanyBreak::where('company_id', $companyId)
+                    ->where(function ($q) use ($slotEnumDow) {
+                        $q->whereNull('day_of_week')
+                          ->orWhere('day_of_week', $slotEnumDow);
+                    })
+                    ->where('start_time', '<=', $startTime)
+                    ->where('end_time', '>', $startTime)
+                    ->exists();
+
+                if ($onBreak) {
+                    return ['error' => 'break'];
+                }
+
+                // Determine effective max_concurrent (apply override if any)
+                $maxConcurrent = $service->max_concurrent;
+
+                if ($maxConcurrent !== null) {
+                    $override = \App\Models\CompanyCapacityOverride::where('company_id', $companyId)
+                        ->where('date', $date)
+                        ->first();
+
+                    if ($override) {
+                        $maxConcurrent = min($maxConcurrent, $override->capacity);
+                    }
+                }
+
+                // Count overlapping bookings for this service+slot (pending/confirmed/rejected all hold capacity)
+                $count = Appointment::where('company_id', $companyId)
+                    ->where('service_id', $service->id)
+                    ->where('date', $date)
+                    ->whereIn('status', [
+                        AppointmentStatus::Pending->value,
+                        AppointmentStatus::Confirmed->value,
+                        AppointmentStatus::Rejected->value,
+                    ])
+                    ->where('start_time', '<', $endTime)
+                    ->where('end_time', '>', $startTime)
+                    ->lockForUpdate()
+                    ->count();
+
+                if ($maxConcurrent !== null && $count >= $maxConcurrent) {
+                    return ['error' => 'conflict'];
+                }
+
+                return Appointment::create([
+                    'user_id'         => $request->user()->id,
+                    'company_id'      => $companyId,
+                    'service_id'      => $service->id,
+                    'company_user_id' => null,
+                    'date'            => $date,
+                    'start_time'      => $startTime,
+                    'end_time'        => $endTime,
+                    'status'          => AppointmentStatus::Pending,
+                ]);
+            });
+
+            if (is_array($result)) {
+                $error = $result['error'] ?? null;
+
+                if ($error === 'day_off' || $error === 'break') {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Ce créneau n\'est pas disponible.',
+                    ], 422);
+                }
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Ce créneau est complet. Veuillez en choisir un autre.',
+                ], 409);
+            }
+
+            Cache::forget("company:availability:{$companyId}:{$date}");
+
+            return response()->json([
+                'success' => true,
+                'data'    => new AppointmentResource($result),
+            ], 201);
+        }
+
+        // -----------------------------------------------------------------------
+        // Type 1: employee_based (original logic — unchanged)
+        // -----------------------------------------------------------------------
         $result = DB::transaction(function () use ($request, $validated, $companyId, $serviceId, $date, $startTime, $endTime, $slotEnumDow) {
             if (isset($validated['employee_id'])) {
                 $companyUserId = (int) $validated['employee_id'];
 
-                // Lock overlapping rows for THIS employee and verify availability
                 $conflict = Appointment::query()
                     ->where('company_user_id', $companyUserId)
                     ->whereDate('date', $date)
@@ -100,13 +206,9 @@ class BookingController extends Controller
                     ->exists();
 
                 if ($conflict) {
-                    return ['error' => 'conflict']; // slot taken
+                    return ['error' => 'conflict'];
                 }
 
-                // Reject the booking when the selected time falls within the
-                // employee's break. A break applies when its day_of_week is
-                // null (every day) or matches the slot's day of week, and the
-                // slot start falls within [break.start_time, break.end_time).
                 $onBreak = EmployeeBreak::where('company_user_id', $companyUserId)
                     ->where(function ($q) use ($slotEnumDow) {
                         $q->whereNull('day_of_week')
@@ -130,7 +232,7 @@ class BookingController extends Controller
                 );
 
                 if ($companyUserId === null) {
-                    return ['error' => 'conflict']; // no employee free
+                    return ['error' => 'conflict'];
                 }
             }
 

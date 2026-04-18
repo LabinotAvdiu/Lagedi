@@ -19,16 +19,22 @@ class MyCompanyResource extends JsonResource
             'name'            => $this->name,
             'description'     => $this->description,
             'phone'           => $this->phone,
+            'phoneSecondary'  => $this->phone_secondary,
             'email'           => $this->email,
             'address'         => $this->address,
             'city'            => $this->city,
             'postalCode'      => $this->postal_code,
             'country'         => $this->country,
             'gender'          => $this->gender?->value,
+            'bookingMode'     => $this->booking_mode instanceof \BackedEnum
+                ? $this->booking_mode->value
+                : $this->booking_mode,
             'profileImageUrl' => $this->profile_image_url,
             'rating'          => (float) $this->rating,
             'reviewCount'     => (int) $this->review_count,
             'priceLevel'      => (int) $this->price_level,
+            'latitude'        => $this->when(isset($this->latitude), fn () => (float) $this->latitude),
+            'longitude'       => $this->when(isset($this->longitude), fn () => (float) $this->longitude),
 
             'openingHours' => $this->whenLoaded('openingHours', fn () =>
                 $this->openingHours

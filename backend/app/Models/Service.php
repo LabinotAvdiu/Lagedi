@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
     'company_id', 'category_id', 'name', 'description',
-    'price', 'duration', 'gender', 'is_active',
+    'price', 'duration', 'gender', 'is_active', 'max_concurrent',
 ])]
 class Service extends Model
 {
@@ -21,9 +21,10 @@ class Service extends Model
     protected function casts(): array
     {
         return [
-            'price' => 'decimal:2',
-            'is_active' => 'boolean',
-            'gender' => Gender::class,
+            'price'          => 'decimal:2',
+            'is_active'      => 'boolean',
+            'gender'         => Gender::class,
+            'max_concurrent' => 'integer',
         ];
     }
 

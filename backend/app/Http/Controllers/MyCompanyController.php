@@ -7,27 +7,45 @@ namespace App\Http\Controllers;
 use App\Enums\CompanyRole;
 use App\Enums\DayOfWeek;
 use App\Enums\UserRole;
+use App\Enums\AppointmentStatus;
+use App\Enums\BookingMode;
 use App\Http\Requests\MyCompany\CreateEmployeeRequest;
 use App\Http\Requests\MyCompany\InviteEmployeeRequest;
 use App\Http\Requests\MyCompany\StoreCategoryRequest;
+use App\Http\Requests\MyCompany\StoreCapacityOverrideRequest;
+use App\Http\Requests\MyCompany\StoreCompanyBreakRequest;
 use App\Http\Requests\MyCompany\StoreServiceRequest;
+use App\Http\Requests\MyCompany\StoreCompanyWalkInRequest;
+use App\Http\Requests\MyCompany\UpdateAppointmentStatusRequest;
+use App\Http\Requests\MyCompany\UpdateBookingSettingsRequest;
+use App\Http\Requests\MyCompany\UpdateCapacityOverrideRequest;
 use App\Http\Requests\MyCompany\UpdateCategoryRequest;
+use App\Http\Requests\MyCompany\UpdateCompanyBreakRequest;
 use App\Http\Requests\MyCompany\UpdateCompanyRequest;
 use App\Http\Requests\MyCompany\UpdateEmployeeRequest;
 use App\Http\Requests\MyCompany\UpdateOpeningHoursRequest;
 use App\Http\Requests\MyCompany\UpdateServiceRequest;
+use App\Http\Resources\CompanyBreakResource;
+use App\Http\Resources\CompanyCapacityOverrideResource;
 use App\Http\Resources\EmployeeResource;
 use App\Http\Resources\MyCompanyResource;
 use App\Http\Resources\OpeningHourResource;
+use App\Http\Resources\OwnerAppointmentResource;
 use App\Http\Resources\ServiceCategoryResource;
+use App\Models\Appointment;
 use App\Models\Company;
+use Carbon\Carbon;
+use App\Models\CompanyBreak;
+use App\Models\CompanyCapacityOverride;
 use App\Models\CompanyOpeningHour;
 use App\Models\CompanyUser;
 use App\Models\Service;
 use App\Models\ServiceCategory;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
@@ -89,10 +107,28 @@ class MyCompanyController extends Controller
      */
     public function show(): MyCompanyResource|JsonResponse
     {
-        $company = $this->resolveOwnedCompany();
+        /** @var \App\Models\User $user */
+        $user = auth()->user();
 
-        if ($company instanceof JsonResponse) {
-            return $company;
+        $pivot = \App\Models\CompanyUser::where('user_id', $user->id)
+            ->where('role', CompanyRole::Owner->value)
+            ->first();
+
+        if (! $pivot) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You do not own a company.',
+            ], 403);
+        }
+
+        $company = Company::select('*', DB::raw('ST_X(location) AS longitude'), DB::raw('ST_Y(location) AS latitude'))
+            ->find($pivot->company_id);
+
+        if (! $company) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Company not found.',
+            ], 404);
         }
 
         $company->load('openingHours');
@@ -111,7 +147,21 @@ class MyCompanyController extends Controller
             return $company;
         }
 
-        $company->update($request->validated());
+        $validated = $request->validated();
+        $lat = $validated['latitude'] ?? null;
+        $lng = $validated['longitude'] ?? null;
+        unset($validated['latitude'], $validated['longitude']);
+
+        $company->update($validated);
+
+        if ($lat !== null && $lng !== null) {
+            DB::statement(
+                'UPDATE companies SET location = ST_SRID(POINT(?, ?), 4326) WHERE id = ?',
+                [(float) $lat, (float) $lng, $company->id]
+            );
+        }
+
+        Cache::forget("company:detail:{$company->id}");
 
         return new MyCompanyResource($company->fresh('openingHours'));
     }
@@ -605,6 +655,523 @@ class MyCompanyController extends Controller
             'durationMinutes' => (int) $service->duration,
             'price'           => (float) $service->price,
             'isActive'        => (bool) $service->is_active,
+            'maxConcurrent'   => $service->max_concurrent !== null ? (int) $service->max_concurrent : null,
         ];
+    }
+
+    // =========================================================================
+    // Booking Settings
+    // =========================================================================
+
+    /**
+     * PUT /api/my-company/booking-settings
+     */
+    public function updateBookingSettings(UpdateBookingSettingsRequest $request): JsonResponse
+    {
+        $company = $this->resolveOwnedCompany();
+
+        if ($company instanceof JsonResponse) {
+            return $company;
+        }
+
+        $company->update(['booking_mode' => $request->validated('booking_mode')]);
+
+        Cache::forget("company:detail:{$company->id}");
+
+        return response()->json([
+            'success'     => true,
+            'message'     => 'Booking settings updated.',
+            'bookingMode' => $company->fresh()->booking_mode instanceof \BackedEnum
+                ? $company->fresh()->booking_mode->value
+                : $company->fresh()->booking_mode,
+        ]);
+    }
+
+    // =========================================================================
+    // Company Breaks
+    // =========================================================================
+
+    /**
+     * GET /api/my-company/breaks
+     */
+    public function listBreaks(): AnonymousResourceCollection|JsonResponse
+    {
+        $company = $this->resolveOwnedCompany();
+
+        if ($company instanceof JsonResponse) {
+            return $company;
+        }
+
+        $breaks = CompanyBreak::where('company_id', $company->id)
+            ->orderBy('day_of_week')
+            ->orderBy('start_time')
+            ->get();
+
+        return CompanyBreakResource::collection($breaks);
+    }
+
+    /**
+     * POST /api/my-company/breaks
+     */
+    public function storeBreak(StoreCompanyBreakRequest $request): JsonResponse
+    {
+        $company = $this->resolveOwnedCompany();
+
+        if ($company instanceof JsonResponse) {
+            return $company;
+        }
+
+        $break = CompanyBreak::create(array_merge(
+            $request->validated(),
+            ['company_id' => $company->id]
+        ));
+
+        Cache::forget("company:detail:{$company->id}");
+
+        return (new CompanyBreakResource($break))
+            ->response()
+            ->setStatusCode(201);
+    }
+
+    /**
+     * PUT /api/my-company/breaks/{id}
+     */
+    public function updateBreak(UpdateCompanyBreakRequest $request, int $id): JsonResponse
+    {
+        $company = $this->resolveOwnedCompany();
+
+        if ($company instanceof JsonResponse) {
+            return $company;
+        }
+
+        $break = CompanyBreak::where('id', $id)
+            ->where('company_id', $company->id)
+            ->first();
+
+        if (! $break) {
+            return $this->notFound('break');
+        }
+
+        $break->update($request->validated());
+
+        Cache::forget("company:detail:{$company->id}");
+
+        return response()->json([
+            'success' => true,
+            'data'    => new CompanyBreakResource($break->fresh()),
+        ]);
+    }
+
+    /**
+     * DELETE /api/my-company/breaks/{id}
+     */
+    public function destroyBreak(int $id): JsonResponse
+    {
+        $company = $this->resolveOwnedCompany();
+
+        if ($company instanceof JsonResponse) {
+            return $company;
+        }
+
+        $break = CompanyBreak::where('id', $id)
+            ->where('company_id', $company->id)
+            ->first();
+
+        if (! $break) {
+            return $this->notFound('break');
+        }
+
+        $break->delete();
+
+        Cache::forget("company:detail:{$company->id}");
+
+        return response()->json(['success' => true, 'message' => 'Break deleted.']);
+    }
+
+    // =========================================================================
+    // Capacity Overrides
+    // =========================================================================
+
+    /**
+     * GET /api/my-company/capacity-overrides
+     */
+    public function listCapacityOverrides(): AnonymousResourceCollection|JsonResponse
+    {
+        $company = $this->resolveOwnedCompany();
+
+        if ($company instanceof JsonResponse) {
+            return $company;
+        }
+
+        $overrides = CompanyCapacityOverride::where('company_id', $company->id)
+            ->orderBy('date')
+            ->get();
+
+        return CompanyCapacityOverrideResource::collection($overrides);
+    }
+
+    /**
+     * POST /api/my-company/capacity-overrides
+     */
+    public function storeCapacityOverride(StoreCapacityOverrideRequest $request): JsonResponse
+    {
+        $company = $this->resolveOwnedCompany();
+
+        if ($company instanceof JsonResponse) {
+            return $company;
+        }
+
+        // Enforce unique constraint gracefully
+        $exists = CompanyCapacityOverride::where('company_id', $company->id)
+            ->where('date', $request->validated('date'))
+            ->exists();
+
+        if ($exists) {
+            return response()->json([
+                'success' => false,
+                'message' => 'A capacity override already exists for this date.',
+                'errors'  => ['date' => ['already_exists']],
+            ], 422);
+        }
+
+        $override = CompanyCapacityOverride::create(array_merge(
+            $request->validated(),
+            ['company_id' => $company->id]
+        ));
+
+        Cache::forget("company:detail:{$company->id}");
+        Cache::forget("company:availability:{$company->id}:{$request->validated('date')}");
+
+        return (new CompanyCapacityOverrideResource($override))
+            ->response()
+            ->setStatusCode(201);
+    }
+
+    /**
+     * PUT /api/my-company/capacity-overrides/{id}
+     */
+    public function updateCapacityOverride(UpdateCapacityOverrideRequest $request, int $id): JsonResponse
+    {
+        $company = $this->resolveOwnedCompany();
+
+        if ($company instanceof JsonResponse) {
+            return $company;
+        }
+
+        $override = CompanyCapacityOverride::where('id', $id)
+            ->where('company_id', $company->id)
+            ->first();
+
+        if (! $override) {
+            return $this->notFound('capacity override');
+        }
+
+        $override->update($request->validated());
+
+        Cache::forget("company:detail:{$company->id}");
+        Cache::forget("company:availability:{$company->id}:{$override->date->format('Y-m-d')}");
+
+        return response()->json([
+            'success' => true,
+            'data'    => new CompanyCapacityOverrideResource($override->fresh()),
+        ]);
+    }
+
+    /**
+     * DELETE /api/my-company/capacity-overrides/{id}
+     */
+    public function destroyCapacityOverride(int $id): JsonResponse
+    {
+        $company = $this->resolveOwnedCompany();
+
+        if ($company instanceof JsonResponse) {
+            return $company;
+        }
+
+        $override = CompanyCapacityOverride::where('id', $id)
+            ->where('company_id', $company->id)
+            ->first();
+
+        if (! $override) {
+            return $this->notFound('capacity override');
+        }
+
+        $dateStr = $override->date->format('Y-m-d');
+        $override->delete();
+
+        Cache::forget("company:detail:{$company->id}");
+        Cache::forget("company:availability:{$company->id}:{$dateStr}");
+
+        return response()->json(['success' => true, 'message' => 'Capacity override deleted.']);
+    }
+
+    // =========================================================================
+    // Appointment Approval (Type 2)
+    // =========================================================================
+
+    /**
+     * PUT /api/my-company/appointments/{id}/status
+     *
+     * Owner can confirm or reject a pending appointment on a capacity_based company.
+     */
+    public function updateAppointmentStatus(UpdateAppointmentStatusRequest $request, int $id): JsonResponse
+    {
+        $company = $this->resolveOwnedCompany();
+
+        if ($company instanceof JsonResponse) {
+            return $company;
+        }
+
+        // Only capacity_based companies use this approval flow
+        $mode = $company->booking_mode instanceof BookingMode
+            ? $company->booking_mode
+            : BookingMode::from((string) $company->booking_mode);
+
+        if ($mode !== BookingMode::CapacityBased) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Appointment approval is only available for capacity-based companies.',
+            ], 422);
+        }
+
+        $appointment = Appointment::where('id', $id)
+            ->where('company_id', $company->id)
+            ->first();
+
+        if (! $appointment) {
+            return $this->notFound('appointment');
+        }
+
+        $newStatus = AppointmentStatus::from($request->validated('status'));
+        $currentStatus = $appointment->status instanceof AppointmentStatus
+            ? $appointment->status
+            : AppointmentStatus::from((string) $appointment->status);
+
+        // Allowed transitions:
+        //   pending   → confirmed | rejected | cancelled
+        //   confirmed → cancelled
+        // Anything else is rejected.
+        $allowed = match ($currentStatus) {
+            AppointmentStatus::Pending => [
+                AppointmentStatus::Confirmed,
+                AppointmentStatus::Rejected,
+                AppointmentStatus::Cancelled,
+            ],
+            AppointmentStatus::Confirmed => [AppointmentStatus::Cancelled],
+            default => [],
+        };
+
+        if (! in_array($newStatus, $allowed, true)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This status transition is not allowed.',
+            ], 422);
+        }
+
+        $appointment->update(['status' => $newStatus]);
+
+        $dateStr = $appointment->date instanceof \Carbon\Carbon
+            ? $appointment->date->format('Y-m-d')
+            : substr((string) $appointment->date, 0, 10);
+
+        Cache::forget("company:availability:{$company->id}:{$dateStr}");
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Appointment status updated.',
+            'status'  => $newStatus->value,
+        ]);
+    }
+
+    /**
+     * POST /api/my-company/walk-in
+     *
+     * Instantly creates a confirmed walk-in appointment for a capacity_based company.
+     * Bypasses the pending/approve workflow. company_user_id is NULL (no per-employee tracking).
+     */
+    public function storeWalkIn(StoreCompanyWalkInRequest $request): JsonResponse
+    {
+        $company = $this->resolveOwnedCompany();
+
+        if ($company instanceof JsonResponse) {
+            return $company;
+        }
+
+        $mode = $company->booking_mode instanceof BookingMode
+            ? $company->booking_mode
+            : BookingMode::from((string) $company->booking_mode);
+
+        if ($mode !== BookingMode::CapacityBased) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Walk-in only for capacity-based salons.',
+            ], 403);
+        }
+
+        $validated = $request->validated();
+
+        $service = Service::where('id', (int) $validated['service_id'])
+            ->where('company_id', $company->id)
+            ->first();
+
+        if (! $service) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Service not found.',
+                'errors'  => ['service_id' => ['Service does not belong to your company.']],
+            ], 422);
+        }
+
+        $startTime = strlen($validated['start_time']) === 5
+            ? $validated['start_time'] . ':00'
+            : $validated['start_time'];
+
+        $end      = Carbon::createFromFormat('H:i:s', $startTime)->addMinutes((int) $service->duration);
+        $endTime  = $end->format('H:i:s');
+        $date     = $validated['date'];
+
+        $appointment = DB::transaction(function () use ($company, $service, $date, $startTime, $endTime, $validated): Appointment {
+            // Owner-created walk-ins bypass capacity limits — the owner is the
+            // source of truth for their own schedule and may overbook on purpose.
+            return Appointment::create([
+                'company_id'         => $company->id,
+                'company_user_id'    => null,
+                'service_id'         => $service->id,
+                'user_id'            => null,
+                'date'               => $date,
+                'start_time'         => $startTime,
+                'end_time'           => $endTime,
+                'status'             => AppointmentStatus::Confirmed,
+                'is_walk_in'         => true,
+                'walk_in_first_name' => $validated['first_name'],
+                'walk_in_last_name'  => $validated['last_name'] ?? null,
+                'walk_in_phone'      => $validated['phone'] ?? null,
+            ]);
+        });
+
+        Cache::forget("company:availability:{$company->id}:{$date}");
+
+        $appointment->load(['service', 'companyUser.user', 'user']);
+
+        return (new OwnerAppointmentResource($appointment))
+            ->response()
+            ->setStatusCode(201);
+    }
+
+    /**
+     * GET /api/my-company/appointments
+     *
+     * Single-day mode  : ?date=YYYY-MM-DD[&status=…]
+     * Date-range mode  : ?start=YYYY-MM-DD&end=YYYY-MM-DD[&status=…]  (max 42 days)
+     *
+     * Both modes default to confirmed,pending when no status filter is provided.
+     */
+    public function listAppointments(Request $request): AnonymousResourceCollection|JsonResponse
+    {
+        $company = $this->resolveOwnedCompany();
+
+        if ($company instanceof JsonResponse) {
+            return $company;
+        }
+
+        // --- Validate query params -----------------------------------------------
+
+        $validated = validator($request->query(), [
+            'date'   => ['sometimes', 'nullable', 'date_format:Y-m-d'],
+            'start'  => ['sometimes', 'nullable', 'date_format:Y-m-d'],
+            'end'    => ['sometimes', 'nullable', 'date_format:Y-m-d', 'after_or_equal:start'],
+            'status' => ['sometimes', 'string'],
+        ])->validate();
+
+        // --- Determine query mode ------------------------------------------------
+
+        $hasDate  = ! empty($validated['date']);
+        $hasRange = ! empty($validated['start']) && ! empty($validated['end']);
+
+        if (! $hasDate && ! $hasRange) {
+            return response()->json([
+                'success' => false,
+                'message' => "Either 'date' or 'start' and 'end' are required.",
+                'errors'  => ['date' => ["Either 'date' or 'start' and 'end' are required."]],
+            ], 422);
+        }
+
+        if ($hasRange) {
+            $startDate = Carbon::createFromFormat('Y-m-d', $validated['start']);
+            $endDate   = Carbon::createFromFormat('Y-m-d', $validated['end']);
+
+            if ($startDate->diffInDays($endDate) > 42) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Date range cannot exceed 42 days.',
+                    'errors'  => ['end' => ['Date range cannot exceed 42 days.']],
+                ], 422);
+            }
+        }
+
+        // --- Parse status filter -------------------------------------------------
+
+        $allowedValues = array_column(AppointmentStatus::cases(), 'value');
+
+        if (isset($validated['status'])) {
+            $requestedStatuses = array_map('trim', explode(',', $validated['status']));
+
+            $invalid = array_diff($requestedStatuses, $allowedValues);
+            if (! empty($invalid)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid status value(s): ' . implode(', ', $invalid),
+                    'errors'  => ['status' => ['invalid_enum_value']],
+                ], 422);
+            }
+
+            $statuses = $requestedStatuses;
+        } else {
+            // Default: show slots that are booked or awaiting approval
+            $statuses = [
+                AppointmentStatus::Confirmed->value,
+                AppointmentStatus::Pending->value,
+            ];
+        }
+
+        // --- Query ---------------------------------------------------------------
+
+        $query = Appointment::where('company_id', $company->id)
+            ->whereIn('status', $statuses)
+            ->with(['service', 'companyUser.user', 'user']);
+
+        if ($hasDate) {
+            $query->where('date', $validated['date'])
+                  ->orderBy('start_time');
+        } else {
+            $query->whereBetween('date', [$validated['start'], $validated['end']])
+                  ->orderBy('date')
+                  ->orderBy('start_time');
+        }
+
+        return OwnerAppointmentResource::collection($query->get());
+    }
+
+    /**
+     * GET /api/my-company/appointments/pending
+     *
+     * List pending appointments for the owner's company, ordered by date asc.
+     */
+    public function pendingAppointments(): AnonymousResourceCollection|JsonResponse
+    {
+        $company = $this->resolveOwnedCompany();
+
+        if ($company instanceof JsonResponse) {
+            return $company;
+        }
+
+        $appointments = Appointment::where('company_id', $company->id)
+            ->where('status', AppointmentStatus::Pending)
+            ->with(['service', 'companyUser.user', 'user'])
+            ->orderBy('date')
+            ->orderBy('start_time')
+            ->get();
+
+        return OwnerAppointmentResource::collection($appointments);
     }
 }

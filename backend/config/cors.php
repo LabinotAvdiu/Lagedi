@@ -27,7 +27,12 @@ return [
 
     // Allow all origins for mobile app (Flutter does not send an Origin header
     // on non-browser requests, so this does not weaken browser security).
-    'allowed_origins_patterns' => [],
+    // In dev we also accept any localhost port so `flutter run -d chrome`
+    // (which picks a random port each run) just works.
+    'allowed_origins_patterns' => [
+        '#^http://localhost:\d+$#',
+        '#^http://127\.0\.0\.1:\d+$#',
+    ],
 
     'allowed_headers' => [
         'Content-Type',

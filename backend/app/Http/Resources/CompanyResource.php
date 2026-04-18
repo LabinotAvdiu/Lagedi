@@ -7,6 +7,7 @@ namespace App\Http\Resources;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Transforms a Company model into the JSON shape expected by the Flutter listing cards.
@@ -34,13 +35,38 @@ class CompanyResource extends JsonResource
             'name'           => $this->name,
             'address'        => $this->address,
             'city'           => $this->city,
-            'photoUrl'       => $this->profile_image_url,
+            'photoUrl'       => $this->resolveCoverPhoto(),
             'rating'         => (float) $this->rating,
             'reviewCount'    => (int) $this->review_count,
             'priceLevel'     => (int) $this->price_level,
             'morningSlots'   => $this->buildMorningSlots(),
             'afternoonSlots' => $this->buildAfternoonSlots(),
         ];
+    }
+
+    /**
+     * Returns the thumbnail URL of the first gallery image (ordered by sort_order ASC),
+     * falling back to profile_image_url when no gallery images exist.
+     */
+    private function resolveCoverPhoto(): ?string
+    {
+        if ($this->relationLoaded('galleryImages') && $this->galleryImages->isNotEmpty()) {
+            $first = $this->galleryImages->sortBy('sort_order')->first();
+
+            if ($first) {
+                $path = $first->thumbnail_path ?? $first->image_path;
+                if ($path) {
+                    // Seeded fixtures may store an absolute URL in image_path;
+                    // don't double-prefix with APP_URL/storage/.
+                    if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+                        return $path;
+                    }
+                    return Storage::disk('public')->url($path);
+                }
+            }
+        }
+
+        return $this->profile_image_url;
     }
 
     /**

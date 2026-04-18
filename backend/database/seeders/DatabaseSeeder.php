@@ -13,6 +13,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             CompanySeeder::class,
             AppointmentSeeder::class,
+            Type2CompanySeeder::class,
         ]);
     }
 }

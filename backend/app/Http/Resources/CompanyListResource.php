@@ -37,11 +37,19 @@ class CompanyListResource extends JsonResource
             'name'         => $this->name,
             'address'      => $this->address,
             'city'         => $this->city,
-            'photoUrl'     => $this->profile_image_url,
+            // Controller resolves the gallery thumbnail (or profile fallback)
+            // and stores it as `photo_url` in the cached array.
+            'photoUrl'     => $this->photo_url ?? $this->profile_image_url,
             'rating'       => (float) $this->rating,
             'reviewCount'  => (int) $this->review_count,
             'priceLevel'   => (int) $this->price_level,
+            'bookingMode'  => $this->booking_mode instanceof \BackedEnum
+                ? $this->booking_mode->value
+                : ($this->booking_mode ?? 'employee_based'),
             'availability' => $this->availability ?? [],
+            // Injected post-cache by CompanyController::index() — never stored
+            // in the cache itself so it can never leak between users.
+            'isFavorite'   => (bool) ($this->is_favorite ?? false),
         ];
     }
 }

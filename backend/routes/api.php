@@ -5,8 +5,12 @@ declare(strict_types=1);
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\CompanyController;
+use App\Http\Controllers\FavoriteController;
 use App\Http\Controllers\MyCompanyController;
+use App\Http\Controllers\MyCompanyGalleryController;
 use App\Http\Controllers\MyScheduleController;
+use App\Http\Controllers\NotificationPreferenceController;
+use App\Http\Controllers\UserDeviceController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -21,6 +25,9 @@ Route::prefix('auth')->group(function () {
     // Registration & login
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/login',    [AuthController::class, 'login'])->middleware('throttle:5,1');
+
+    // Email availability check (used during signup form on-blur)
+    Route::get('/check-email', [AuthController::class, 'checkEmail'])->middleware('throttle:30,1');
 
     // Token lifecycle
     Route::post('/refresh',  [AuthController::class, 'refresh']);
@@ -60,6 +67,16 @@ Route::get('/companies/{id}/slots',            [CompanyController::class, 'slots
 
 /*
 |--------------------------------------------------------------------------
+| Favorites routes  — /api/companies/{company}/favorite
+|--------------------------------------------------------------------------
+*/
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/companies/{company}/favorite',   [FavoriteController::class, 'store']);
+    Route::delete('/companies/{company}/favorite', [FavoriteController::class, 'destroy']);
+});
+
+/*
+|--------------------------------------------------------------------------
 | Booking routes  — /api/bookings/*
 |--------------------------------------------------------------------------
 */
@@ -96,6 +113,23 @@ Route::middleware('auth:sanctum')->prefix('my-schedule')->group(function () {
 | Owner — "Mon Salon" routes  — /api/my-company/*
 |--------------------------------------------------------------------------
 */
+/*
+|--------------------------------------------------------------------------
+| Me — notifications & devices  — /api/me/*
+|--------------------------------------------------------------------------
+*/
+Route::middleware('auth:sanctum')->prefix('me')->group(function () {
+    Route::get('/notification-preferences',  [NotificationPreferenceController::class, 'show']);
+    Route::put('/notification-preferences',  [NotificationPreferenceController::class, 'update']);
+    Route::post('/devices',                  [UserDeviceController::class, 'store']);
+    Route::delete('/devices',               [UserDeviceController::class, 'destroy']);
+});
+
+/*
+|--------------------------------------------------------------------------
+| Owner — "Mon Salon" routes  — /api/my-company/*
+|--------------------------------------------------------------------------
+*/
 Route::middleware('auth:sanctum')->prefix('my-company')->group(function () {
 
     // Company profile
@@ -123,4 +157,33 @@ Route::middleware('auth:sanctum')->prefix('my-company')->group(function () {
     // Opening hours
     Route::get('/hours',  [MyCompanyController::class, 'listHours']);
     Route::put('/hours',  [MyCompanyController::class, 'updateHours']);
+
+    // Booking settings (Type 2)
+    Route::put('/booking-settings', [MyCompanyController::class, 'updateBookingSettings']);
+
+    // Company breaks (Type 2)
+    Route::get('/breaks',        [MyCompanyController::class, 'listBreaks']);
+    Route::post('/breaks',       [MyCompanyController::class, 'storeBreak']);
+    Route::put('/breaks/{id}',   [MyCompanyController::class, 'updateBreak']);
+    Route::delete('/breaks/{id}', [MyCompanyController::class, 'destroyBreak']);
+
+    // Capacity overrides (Type 2)
+    Route::get('/capacity-overrides',        [MyCompanyController::class, 'listCapacityOverrides']);
+    Route::post('/capacity-overrides',       [MyCompanyController::class, 'storeCapacityOverride']);
+    Route::put('/capacity-overrides/{id}',   [MyCompanyController::class, 'updateCapacityOverride']);
+    Route::delete('/capacity-overrides/{id}', [MyCompanyController::class, 'destroyCapacityOverride']);
+
+    // Walk-in (Type 2 only)
+    Route::post('/walk-in', [MyCompanyController::class, 'storeWalkIn']);
+
+    // Appointment routes (Type 2) — specific routes before /{id} to avoid collision
+    Route::get('/appointments',                  [MyCompanyController::class, 'listAppointments']);
+    Route::get('/appointments/pending',          [MyCompanyController::class, 'pendingAppointments']);
+    Route::put('/appointments/{id}/status',      [MyCompanyController::class, 'updateAppointmentStatus']);
+
+    // Gallery — reorder must come before /{id} to avoid route collision
+    Route::get('/gallery',              [MyCompanyGalleryController::class, 'index']);
+    Route::post('/gallery',             [MyCompanyGalleryController::class, 'store']);
+    Route::post('/gallery/reorder',     [MyCompanyGalleryController::class, 'reorder']);
+    Route::delete('/gallery/{id}',      [MyCompanyGalleryController::class, 'destroy']);
 });

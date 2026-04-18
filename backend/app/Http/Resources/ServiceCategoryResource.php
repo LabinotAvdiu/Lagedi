@@ -25,6 +25,7 @@ class ServiceCategoryResource extends JsonResource
                     'durationMinutes' => (int) $service->duration,
                     'price'           => (float) $service->price,
                     'isActive'        => (bool) $service->is_active,
+                    'maxConcurrent'   => $service->max_concurrent !== null ? (int) $service->max_concurrent : null,
                 ])->values()
             ),
         ];

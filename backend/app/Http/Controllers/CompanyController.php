@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Enums\AppointmentStatus;
+use App\Enums\BookingMode;
 use App\Enums\DayOfWeek;
 use App\Http\Requests\Company\GetAvailabilityRequest;
 use App\Http\Requests\Company\GetSlotsRequest;
@@ -14,6 +15,8 @@ use App\Http\Resources\CompanyListResource;
 use App\Http\Resources\CompanyResource;
 use App\Models\Appointment;
 use App\Models\Company;
+use App\Models\CompanyBreak;
+use App\Models\CompanyCapacityOverride;
 use App\Models\CompanyDayOff;
 use App\Models\CompanyOpeningHour;
 use App\Models\CompanyUser;
@@ -25,7 +28,10 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class CompanyController extends Controller
 {
@@ -39,15 +45,31 @@ class CompanyController extends Controller
     private const LIST_COLUMNS = [
         'id', 'name', 'address', 'city',
         'profile_image_url', 'rating', 'review_count', 'price_level',
-        'gender',
+        'gender', 'booking_mode',
     ];
 
     /**
      * GET /api/companies
      *
      * Returns a paginated list of companies (lightweight card view).
-     * Results are cached per unique filter combination for 5 minutes to
-     * eliminate repeated DB hits on identical queries.
+     *
+     * Cache strategy — per-user:
+     *   - Authenticated user  → key includes userId + a per-user version token so
+     *     that POST/DELETE /favorite can bust only that user's cache without
+     *     touching other users' cached results.
+     *   - Anonymous           → key is global (no userId) — shared across guests.
+     *
+     * isFavorite flag:
+     *   - Loaded in ONE extra query (not N+1): we fetch all favorite company IDs
+     *     for the current user, then do an O(1) set-lookup per item.
+     *
+     * Favorites-first ordering:
+     *   - When NO filter is active: favorites are moved to the top of the page,
+     *     sorted by company_favorites.created_at ASC (oldest-added first), then
+     *     the rest in the normal rating DESC / name ASC order.
+     *   - When ANY filter is active: favorites that match the filter are still
+     *     promoted to the top (created_at ASC), then the rest of the filtered
+     *     results. This gives a consistent UX regardless of search context.
      *
      * Query params:
      *   search  — full-text search on name or address (LIKE fallback)
@@ -59,10 +81,25 @@ class CompanyController extends Controller
     public function index(ListCompaniesRequest $request): AnonymousResourceCollection
     {
         $validated = $request->validated();
+        // Route is public, so no middleware activates the sanctum guard.
+        // Resolve the user explicitly via the sanctum guard — null for guests,
+        // the authenticated user when a valid bearer token is present.
+        $userId    = Auth::guard('sanctum')->id();
 
-        // Build a deterministic cache key from the full filter state so that
-        // different filter combinations never share the same cached result.
-        $cacheKey = 'companies:list:' . md5(serialize([
+        // ------------------------------------------------------------------
+        // Per-user version token: incrementing it busts the cache for this
+        // user across all pages/filter combos without touching other users.
+        // The version is stored in a dedicated key; we read it here so it
+        // participates in the cache key below.
+        // ------------------------------------------------------------------
+        $userVersion = $userId
+            ? (int) Cache::get("companies:list:user_version:{$userId}", 0)
+            : 0;
+
+        // Build a deterministic cache key:
+        //   - For auth users  → includes userId + version (per-user isolation)
+        //   - For guests       → global key (all guests share the same result)
+        $cacheKeySuffix = md5(serialize([
             $validated['search'] ?? null,
             $validated['city']   ?? null,
             $validated['gender'] ?? null,
@@ -70,14 +107,24 @@ class CompanyController extends Controller
             $validated['page']   ?? 1,
         ]));
 
-        // Cache a plain-PHP array (not Eloquent objects) so the file driver can
-        // serialize and deserialize safely. Eloquent paginators cannot be stored
-        // in the file cache because PHP cannot reconstruct model instances from
-        // serialized closures and lazy collections.
-        $cached = Cache::remember($cacheKey, 300, function () use ($validated): array {
-            $query = Company::select(self::LIST_COLUMNS);
+        $cacheKey = $userId
+            ? "companies:list:u{$userId}:v{$userVersion}:{$cacheKeySuffix}"
+            : "companies:list:{$cacheKeySuffix}";
 
-            // --- Search: LIKE on name or address (FULLTEXT index also exists) ---
+        // ------------------------------------------------------------------
+        // Fetch and cache the raw company data (NO user-specific data inside
+        // the cache — isFavorite is injected AFTER the cache read so the
+        // same cached blob can never leak one user's data to another).
+        // ------------------------------------------------------------------
+        $cached = Cache::remember($cacheKey, 300, function () use ($validated): array {
+            $query = Company::select(self::LIST_COLUMNS)
+                ->with(['galleryImages' => function ($q) {
+                    $q->select('id', 'company_id', 'sort_order',
+                            'thumbnail_path', 'image_path')
+                      ->orderBy('sort_order');
+                }]);
+
+            // --- Search: LIKE on name or address ---
             if (! empty($validated['search'])) {
                 $search = $validated['search'];
                 $query->where(function ($q) use ($search): void {
@@ -86,13 +133,12 @@ class CompanyController extends Controller
                 });
             }
 
-            // --- City filter (case-insensitive exact match via index) ---
+            // --- City filter ---
             if (! empty($validated['city'])) {
                 $query->whereRaw('LOWER(city) = ?', [mb_strtolower($validated['city'])]);
             }
 
             // --- Gender filter ---
-            // A salon with gender "both" is always included regardless of the filter.
             if (! empty($validated['gender'])) {
                 $gender = $validated['gender'];
                 $query->where(function ($q) use ($gender): void {
@@ -106,17 +152,16 @@ class CompanyController extends Controller
                 ->orderBy('name')
                 ->paginate(self::PER_PAGE);
 
-            $items = $paginator->items() ?: [];
+            $items      = $paginator->items() ?: [];
             $companyIds = array_map(fn ($c) => $c->id, $items);
-
-            // Compute 7-day availability starting from each company's first available date
             $availability = $this->computeAvailability($companyIds);
 
             $itemArrays = [];
             foreach ($items as $c) {
-                $arr = $c->toArray();
+                $arr                 = $c->toArray();
                 $arr['availability'] = $availability[$c->id] ?? [];
-                $itemArrays[] = $arr;
+                $arr['photo_url']    = $this->resolveListCoverPhoto($c);
+                $itemArrays[]        = $arr;
             }
 
             return [
@@ -127,15 +172,65 @@ class CompanyController extends Controller
             ];
         });
 
-        // The cached items are plain PHP arrays (serialized via toArray()).
-        // CompanyListResource uses $this->id / $this->name etc. via JsonResource's
-        // DelegatesToResource magic, which requires an object — not an array.
-        // Cast each item to stdClass so property access works correctly without
-        // having to re-hydrate full Eloquent model instances from the cache.
-        $items = array_map(fn (array $row) => (object) $row, $cached['items']);
+        // ------------------------------------------------------------------
+        // Load user's favorite IDs in ONE query (never inside a loop).
+        // For anonymous users this is an empty set — no DB hit.
+        // ------------------------------------------------------------------
+        $favoriteIds = [];        // company_id → created_at (string)
+        if ($userId) {
+            $rows = DB::table('company_favorites')
+                ->where('user_id', $userId)
+                ->get(['company_id', 'created_at']);
 
-        // Rebuild a LengthAwarePaginator from the cached data so that
-        // CompanyListResource::collection() emits correct pagination meta.
+            foreach ($rows as $row) {
+                $favoriteIds[$row->company_id] = $row->created_at;
+            }
+        }
+
+        // ------------------------------------------------------------------
+        // Inject isFavorite into each cached item (post-cache, never stored).
+        // ------------------------------------------------------------------
+        $items = array_map(function (array $row) use ($favoriteIds): object {
+            $row['is_favorite'] = isset($favoriteIds[$row['id']]);
+            // Store the favorite's created_at for sorting below (null if not fav).
+            $row['_fav_created_at'] = $favoriteIds[$row['id']] ?? null;
+            return (object) $row;
+        }, $cached['items']);
+
+        // ------------------------------------------------------------------
+        // Favorites-first promotion (applied to every request, with or without
+        // filters — see docblock for the chosen rule).
+        //
+        // Algorithm: stable partition into [favorites, rest], each sub-list
+        // keeping its original order. Favorites are sorted by created_at ASC.
+        // This is O(n) and allocation-efficient for typical page sizes (≤20).
+        // ------------------------------------------------------------------
+        if (! empty($favoriteIds)) {
+            $favorites = [];
+            $rest      = [];
+
+            foreach ($items as $item) {
+                if ($item->_fav_created_at !== null) {
+                    $favorites[] = $item;
+                } else {
+                    $rest[] = $item;
+                }
+            }
+
+            // Sort favorites oldest-added first (created_at ASC).
+            usort($favorites, fn ($a, $b) => strcmp(
+                (string) $a->_fav_created_at,
+                (string) $b->_fav_created_at,
+            ));
+
+            $items = array_merge($favorites, $rest);
+        }
+
+        // Strip the internal sort key before handing to the Resource.
+        foreach ($items as $item) {
+            unset($item->_fav_created_at);
+        }
+
         $paginator = new LengthAwarePaginator(
             $items,
             $cached['total'],
@@ -163,9 +258,9 @@ class CompanyController extends Controller
      * overhead even when not cast.
      */
     private const DETAIL_COLUMNS = [
-        'id', 'name', 'description', 'phone', 'email',
+        'id', 'name', 'description', 'phone', 'phone_secondary', 'email',
         'address', 'city', 'postal_code', 'country',
-        'gender', 'rating', 'review_count', 'price_level',
+        'gender', 'booking_mode', 'rating', 'review_count', 'price_level',
         'profile_image_url',
     ];
 
@@ -176,8 +271,10 @@ class CompanyController extends Controller
         // so the cache driver never has to serialise Eloquent internals, enum
         // instances, or the binary POINT blob.
         $cached = Cache::remember("company:detail:{$id}", 300, function () use ($id): array|false {
-            $company = Company::select(self::DETAIL_COLUMNS)
-                ->with([
+            $company = Company::select(array_merge(self::DETAIL_COLUMNS, [
+                DB::raw('ST_X(location) AS longitude'),
+                DB::raw('ST_Y(location) AS latitude'),
+            ]))->with([
                     'openingHours',
                     'galleryImages',
                     'serviceCategories.services',
@@ -203,7 +300,56 @@ class CompanyController extends Controller
             ], 404);
         }
 
+        // Inject isFavorite post-cache so the flag is always per-user fresh
+        // and never persisted in (or leaked via) the shared company cache.
+        // Public route → use sanctum guard explicitly to resolve bearer token.
+        $userId = Auth::guard('sanctum')->id();
+        $isFavorite = false;
+        if ($userId) {
+            $isFavorite = DB::table('company_favorites')
+                ->where('user_id', $userId)
+                ->where('company_id', $id)
+                ->exists();
+        }
+
+        $cached['isFavorite'] = $isFavorite;
+
         return response()->json(['data' => $cached]);
+    }
+
+    /**
+     * Resolves the cover photo URL for a listing card.
+     *
+     * Prefers the thumbnail of the first gallery image (sorted by sort_order ASC),
+     * falls back to the company's profile_image_url when no gallery exists.
+     */
+    private function resolveListCoverPhoto(Company $company): ?string
+    {
+        if ($company->relationLoaded('galleryImages') && $company->galleryImages->isNotEmpty()) {
+            $first = $company->galleryImages->first();
+
+            if ($first) {
+                $path = $first->thumbnail_path ?? $first->image_path;
+                if ($path) {
+                    return $this->normaliseStorageUrl($path);
+                }
+            }
+        }
+
+        return $company->profile_image_url;
+    }
+
+    /**
+     * Returns a public URL for a storage path. If the path is already an
+     * absolute URL (e.g. a seeded Unsplash link stored in image_path for
+     * legacy fixtures), it is returned verbatim — no double-prefixing.
+     */
+    private function normaliseStorageUrl(string $path): string
+    {
+        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+            return $path;
+        }
+        return Storage::disk('public')->url($path);
     }
 
     /**
@@ -848,6 +994,14 @@ class CompanyController extends Controller
             ], 404);
         }
 
+        $mode = $company->booking_mode instanceof BookingMode
+            ? $company->booking_mode
+            : BookingMode::from((string) ($company->booking_mode ?? 'employee_based'));
+
+        if ($mode === BookingMode::CapacityBased) {
+            return $this->capacityBasedSlots($request, $company);
+        }
+
         $serviceId  = $request->validated('service_id');
         $employeeId = $request->validated('employee_id');
 
@@ -1091,6 +1245,168 @@ class CompanyController extends Controller
                     'employeeId' => $employeeId ? (string) $employeeId : null,
                 ];
             }
+
+            $cursor->addMinutes(30);
+        }
+
+        return response()->json(['data' => $slots]);
+    }
+
+    /**
+     * Slot generation for capacity-based (Type 2) companies.
+     *
+     * Contract: { dateTime, serviceId, available, remaining, max }
+     *   - remaining = max_concurrent − count(bookings pending/confirmed/rejected for service+slot)
+     *   - capacity override for date → max = min(service.max_concurrent, override.capacity)
+     *   - break window or day_off → available:false, remaining:0
+     *
+     * Query param `service_id` is required for capacity-based mode; without it
+     * we cannot compute remaining capacity per service.
+     */
+    private function capacityBasedSlots(GetSlotsRequest $request, Company $company): JsonResponse
+    {
+        $serviceId = $request->validated('service_id');
+
+        if (! $serviceId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'service_id is required for capacity-based companies.',
+            ], 422);
+        }
+
+        $service = Service::where('id', (int) $serviceId)
+            ->where('company_id', $company->id)
+            ->first();
+
+        if (! $service) {
+            return response()->json(['data' => []]);
+        }
+
+        $rawDate = $request->validated('date');
+        $date    = $rawDate
+            ? Carbon::createFromFormat('Y-m-d', $rawDate)->startOfDay()
+            : Carbon::today();
+        $dateStr = $date->format('Y-m-d');
+        $now     = Carbon::now();
+
+        $carbonDow = (int) $date->dayOfWeek;
+        $enumDow   = $carbonDow === 0 ? 6 : $carbonDow - 1;
+
+        // --- Opening hours ---
+        $openingByDow = [];
+        foreach ($company->openingHours as $oh) {
+            $dow = $oh->day_of_week instanceof DayOfWeek
+                ? $oh->day_of_week->value
+                : (int) $oh->day_of_week;
+            $openingByDow[$dow] = $oh;
+        }
+
+        $openingHour = $openingByDow[$enumDow] ?? null;
+
+        if (! $openingHour || $openingHour->is_closed || ! $openingHour->open_time || ! $openingHour->close_time) {
+            return response()->json(['data' => []]);
+        }
+
+        // --- Company day-off ---
+        $isDayOff = CompanyDayOff::where('company_id', $company->id)
+            ->where('date', $dateStr)
+            ->exists();
+
+        if ($isDayOff) {
+            return response()->json(['data' => []]);
+        }
+
+        // --- Service max_concurrent + capacity override ---
+        $baseCap = $service->max_concurrent; // null = unlimited
+
+        $override = CompanyCapacityOverride::where('company_id', $company->id)
+            ->where('date', $dateStr)
+            ->first();
+
+        $effectiveMax = null;
+        if ($baseCap !== null) {
+            $effectiveMax = $override ? min($baseCap, $override->capacity) : $baseCap;
+        }
+
+        // --- Company breaks for this day ---
+        $breaks = CompanyBreak::where('company_id', $company->id)
+            ->where(function ($q) use ($enumDow) {
+                $q->whereNull('day_of_week')
+                  ->orWhere('day_of_week', $enumDow);
+            })
+            ->get(['start_time', 'end_time']);
+
+        // --- Booked slots for this service + date (pending/confirmed/rejected) ---
+        $bookedRows = Appointment::where('company_id', $company->id)
+            ->where('service_id', $service->id)
+            ->where('date', $dateStr)
+            ->whereIn('status', [
+                AppointmentStatus::Pending->value,
+                AppointmentStatus::Confirmed->value,
+                AppointmentStatus::Rejected->value,
+            ])
+            ->get(['start_time', 'end_time']);
+
+        $serviceDuration = (int) $service->duration;
+
+        $openTime  = Carbon::createFromFormat('Y-m-d H:i:s', $dateStr . ' ' . $openingHour->open_time);
+        $closeTime = Carbon::createFromFormat('Y-m-d H:i:s', $dateStr . ' ' . $openingHour->close_time);
+        $cursor    = $openTime->copy();
+        $slots     = [];
+
+        while ($cursor->lt($closeTime)) {
+            if ($cursor->lte($now)) {
+                $cursor->addMinutes(30);
+                continue;
+            }
+
+            $slotEnd = $cursor->copy()->addMinutes($serviceDuration);
+            if ($slotEnd->gt($closeTime)) {
+                break;
+            }
+
+            $slotStartStr = $cursor->format('H:i:s');
+            $slotEndStr   = $slotEnd->format('H:i:s');
+
+            // Check company breaks
+            $onBreak = false;
+            foreach ($breaks as $brk) {
+                if ($brk->start_time <= $slotStartStr && $slotStartStr < $brk->end_time) {
+                    $onBreak = true;
+                    break;
+                }
+            }
+
+            if ($onBreak) {
+                $slots[] = [
+                    'dateTime'  => $cursor->format('Y-m-d\TH:i:s'),
+                    'serviceId' => (string) $service->id,
+                    'available' => false,
+                    'remaining' => 0,
+                    'max'       => $effectiveMax,
+                ];
+                $cursor->addMinutes(30);
+                continue;
+            }
+
+            // Count booked slots overlapping this window
+            $bookedCount = 0;
+            foreach ($bookedRows as $booked) {
+                if ($booked->start_time < $slotEndStr && $booked->end_time > $slotStartStr) {
+                    $bookedCount++;
+                }
+            }
+
+            $remaining = $effectiveMax !== null ? max(0, $effectiveMax - $bookedCount) : null;
+            $available = $effectiveMax === null ? true : $remaining > 0;
+
+            $slots[] = [
+                'dateTime'  => $cursor->format('Y-m-d\TH:i:s'),
+                'serviceId' => (string) $service->id,
+                'available' => $available,
+                'remaining' => $remaining,
+                'max'       => $effectiveMax,
+            ];
 
             $cursor->addMinutes(30);
         }
