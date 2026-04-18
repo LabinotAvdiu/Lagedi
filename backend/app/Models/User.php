@@ -139,4 +139,46 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         return $this->hasMany(Appointment::class);
     }
+
+    /**
+     * The companies this user has marked as favorite.
+     *
+     * Ordered by created_at ASC so the oldest-added favorite is first,
+     * matching the home listing promotion order.
+     */
+    public function favoriteCompanies(): BelongsToMany
+    {
+        return $this->belongsToMany(Company::class, 'company_favorites')
+            // The pivot has only created_at (no updated_at).
+            // Using withPivot() instead of withTimestamps() because withTimestamps()
+            // always SELECTs both created_at AND updated_at — which would throw a
+            // "column not found" error since our migration intentionally omits updated_at.
+            ->withPivot('created_at')
+            ->orderBy('company_favorites.created_at', 'asc');
+    }
+
+    // -------------------------------------------------------------------------
+    // Push notifications
+    // -------------------------------------------------------------------------
+
+    public function notificationPreference(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(UserNotificationPreference::class);
+    }
+
+    /**
+     * Retourne les préférences existantes ou en crée avec les valeurs par défaut.
+     */
+    public function ensureNotificationPreference(): UserNotificationPreference
+    {
+        return UserNotificationPreference::firstOrCreate(
+            ['user_id' => $this->id],
+            ['notify_new_booking' => true, 'notify_quiet_day_reminder' => true],
+        );
+    }
+
+    public function devices(): HasMany
+    {
+        return $this->hasMany(UserDevice::class);
+    }
 }

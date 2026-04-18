@@ -48,10 +48,20 @@ class AuthController extends Controller
 
             if ($role === UserRole::Company->value) {
                 $company = Company::create([
-                    'name'    => $data['company_name'],
-                    'address' => $data['address'],
-                    'city'    => $data['city'] ?? '',
+                    'name'         => $data['company_name'],
+                    'address'      => $data['address'],
+                    'city'         => $data['city'] ?? '',
+                    'phone'        => $data['phone'] ?? null,
+                    'email'        => $data['email'],
+                    'booking_mode' => $data['booking_mode'] ?? 'employee_based',
                 ]);
+
+                if (isset($data['latitude'], $data['longitude'])) {
+                    DB::statement(
+                        'UPDATE companies SET location = ST_SRID(POINT(?, ?), 4326) WHERE id = ?',
+                        [(float) $data['latitude'], (float) $data['longitude'], $company->id]
+                    );
+                }
 
                 // Attach the user as owner in the company_user pivot
                 $company->users()->attach($user->id, [
@@ -255,6 +265,19 @@ class AuthController extends Controller
         [$accessToken, $refreshToken] = $this->issueTokenPair($user);
 
         return new AuthResource($user, $accessToken, $refreshToken);
+    }
+
+    // GET /auth/check-email?email=...
+    public function checkEmail(Request $request): JsonResponse
+    {
+        $email = (string) $request->query('email', '');
+        if (! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return response()->json(['available' => null], 422);
+        }
+
+        $exists = User::where('email', $email)->exists();
+
+        return response()->json(['available' => ! $exists]);
     }
 
     // POST /auth/forgot-password

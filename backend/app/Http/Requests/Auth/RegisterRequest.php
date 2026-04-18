@@ -6,12 +6,29 @@ namespace App\Http\Requests\Auth;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rules\Password;
+use Illuminate\Validation\Validator;
 
 class RegisterRequest extends FormRequest
 {
     public function authorize(): bool
     {
         return true;
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $v): void {
+            $hasLat = $this->filled('latitude');
+            $hasLng = $this->filled('longitude');
+
+            if ($hasLat && ! $hasLng) {
+                $v->errors()->add('longitude', 'The longitude field is required when latitude is present.');
+            }
+
+            if ($hasLng && ! $hasLat) {
+                $v->errors()->add('latitude', 'The latitude field is required when longitude is present.');
+            }
+        });
     }
 
     public function rules(): array
@@ -31,6 +48,10 @@ class RegisterRequest extends FormRequest
             // Company-specific fields — required only when role=company
             'company_name' => [$isCompany ? 'required' : 'nullable', 'string', 'max:255'],
             'address'      => [$isCompany ? 'required' : 'nullable', 'string', 'max:255'],
+            'booking_mode' => ['nullable', 'string', 'in:employee_based,capacity_based'],
+
+            'latitude'  => ['nullable', 'numeric', 'between:-90,90'],
+            'longitude' => ['nullable', 'numeric', 'between:-180,180'],
         ];
     }
 }

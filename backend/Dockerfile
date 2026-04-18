@@ -4,9 +4,14 @@ RUN apt-get update && apt-get install -y \
     git \
     zip \
     unzip \
+    libpng-dev \
+    libjpeg62-turbo-dev \
+    libwebp-dev \
+    zlib1g-dev \
     && rm -rf /var/lib/apt/lists/*
 
-RUN docker-php-ext-install pdo_mysql opcache
+RUN docker-php-ext-configure gd --with-jpeg --with-webp \
+    && docker-php-ext-install pdo_mysql opcache gd
 
 # OPcache tuned for development: validates file changes every 2s,
 # large file cache to cover all of Laravel + vendor.

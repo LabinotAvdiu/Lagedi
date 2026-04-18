@@ -6,6 +6,7 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Full company detail shape for the Flutter detail / booking page.
@@ -26,16 +27,27 @@ class CompanyDetailResource extends JsonResource
             'id'          => (string) $this->id,
             'name'        => $this->name,
             'description' => $this->description,
-            'phone'       => $this->phone,
+            'phone'          => $this->phone,
+            'phoneSecondary' => $this->phone_secondary,
             'email'       => $this->email,
             'address'     => $this->address,
             'city'        => $this->city,
             'postalCode'  => $this->postal_code,
             'country'     => $this->country,
             'gender'      => $this->gender?->value,
+            'bookingMode' => $this->booking_mode instanceof \BackedEnum
+                ? $this->booking_mode->value
+                : $this->booking_mode,
             'rating'      => (float) $this->rating,
             'reviewCount' => (int) $this->review_count,
             'priceLevel'  => (int) $this->price_level,
+            'latitude'    => $this->when(isset($this->latitude), fn () => (float) $this->latitude),
+            'longitude'   => $this->when(isset($this->longitude), fn () => (float) $this->longitude),
+            // isFavorite is injected post-cache by CompanyController::show()
+            // when served via the cached array path.  When this Resource is
+            // instantiated directly (e.g. in tests), the value comes from the
+            // model if it has been set as a dynamic property.
+            'isFavorite'  => (bool) ($this->isFavorite ?? false),
 
             // ----------------------------------------------------------------
             // photos — from gallery_images; fall back to profile_image_url
@@ -76,8 +88,19 @@ class CompanyDetailResource extends JsonResource
     private function buildPhotos(): array
     {
         if ($this->relationLoaded('galleryImages') && $this->galleryImages->isNotEmpty()) {
+            // Gallery is already ordered by sort_order via the relation definition.
+            // Return medium-quality URLs for the detail page; fall back to original.
             return $this->galleryImages
-                ->map(fn ($img) => $img->image_path)
+                ->map(function ($img) {
+                    $path = $img->medium_path ?? $img->image_path;
+                    if (! $path) return null;
+                    // Legacy fixtures may store absolute URLs in image_path;
+                    // don't double-prefix with APP_URL/storage/.
+                    if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+                        return $path;
+                    }
+                    return Storage::disk('public')->url($path);
+                })
                 ->filter()
                 ->values()
                 ->toArray();
@@ -105,6 +128,7 @@ class CompanyDetailResource extends JsonResource
                             'name'            => $service->name,
                             'durationMinutes' => (int) $service->duration,
                             'price'           => (float) $service->price,
+                            'maxConcurrent'   => $service->max_concurrent !== null ? (int) $service->max_concurrent : null,
                         ])
                         ->values()
                         ->toArray()
