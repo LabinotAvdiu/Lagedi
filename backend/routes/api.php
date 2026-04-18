@@ -10,6 +10,7 @@ use App\Http\Controllers\MyCompanyController;
 use App\Http\Controllers\MyCompanyGalleryController;
 use App\Http\Controllers\MyScheduleController;
 use App\Http\Controllers\NotificationPreferenceController;
+use App\Http\Controllers\UserAvatarController;
 use App\Http\Controllers\UserDeviceController;
 use Illuminate\Support\Facades\Route;
 
@@ -122,7 +123,9 @@ Route::middleware('auth:sanctum')->prefix('me')->group(function () {
     Route::get('/notification-preferences',  [NotificationPreferenceController::class, 'show']);
     Route::put('/notification-preferences',  [NotificationPreferenceController::class, 'update']);
     Route::post('/devices',                  [UserDeviceController::class, 'store']);
-    Route::delete('/devices',               [UserDeviceController::class, 'destroy']);
+    Route::delete('/devices',                [UserDeviceController::class, 'destroy']);
+    Route::post('/avatar',                   [UserAvatarController::class, 'store']);
+    Route::delete('/avatar',                 [UserAvatarController::class, 'destroy']);
 });
 
 /*

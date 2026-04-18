@@ -42,6 +42,9 @@ class RegisterRequest extends FormRequest
             'password'     => ['required', 'string', Password::min(8)->letters()->mixedCase()->numbers()],
             'phone'        => ['nullable', 'string', 'max:20'],
             'city'         => ['nullable', 'string', 'max:100'],
+            // Personal gender — drives the default home gender filter for
+            // clients. Binary at user level; null = no preference.
+            'gender'       => ['nullable', 'string', 'in:men,women'],
             'role'         => ['nullable', 'string', 'in:user,company'],
             'locale'       => ['nullable', 'string', 'in:fr,en,sq'],
 

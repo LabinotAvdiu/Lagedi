@@ -23,7 +23,7 @@ class EmployeeResource extends JsonResource
                 : $this->role,
             'isActive'    => (bool) $this->is_active,
             'specialties' => $this->specialties ?? [],
-            'profilePhoto'=> $this->profile_photo,
+            'profilePhoto'=> $this->user?->profile_image_url ?? $this->profile_photo,
 
             // Service IDs this employee can perform (empty array when not loaded)
             'serviceIds'  => $this->whenLoaded(

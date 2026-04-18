@@ -152,7 +152,9 @@ class CompanyDetailResource extends JsonResource
                 'name'        => $member->relationLoaded('user')
                     ? trim($member->user->first_name . ' ' . $member->user->last_name)
                     : null,
-                'photoUrl'    => $member->profile_photo,
+                'photoUrl'    => $member->relationLoaded('user')
+                    ? ($member->user->profile_image_url ?? $member->profile_photo)
+                    : $member->profile_photo,
                 'specialties' => $member->specialties ?? [],
             ])
             ->values()

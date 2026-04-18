@@ -1438,7 +1438,7 @@ class CompanyController extends Controller
                 'name'        => $member->user
                     ? trim($member->user->first_name . ' ' . $member->user->last_name)
                     : null,
-                'photoUrl'    => $member->profile_photo,
+                'photoUrl'    => $member->user?->profile_image_url ?? $member->profile_photo,
                 'specialties' => $member->specialties ?? [],
                 'serviceIds'  => $member->services->pluck('id')->map(fn ($id) => (string) $id)->values()->all(),
                 'role'        => $member->role instanceof \BackedEnum
