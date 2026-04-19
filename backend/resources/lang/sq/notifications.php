@@ -30,4 +30,8 @@ return [
     // Anulim nga klienti (marrësi: pronari/punonjësi)
     'appointment_cancelled_by_client_title' => 'Rezervimi u anulua',
     'appointment_cancelled_by_client_body'  => ':client_name anuloi takimin e :service_name në :time.',
+
+    // Anulim nga salloni (marrësi: klienti)
+    'appointment_cancelled_by_owner_title' => 'Takimi u anulua',
+    'appointment_cancelled_by_owner_body'  => ':company_name anuloi takimin tuaj të :service_name në :time.',
 ];

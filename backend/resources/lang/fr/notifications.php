@@ -30,4 +30,8 @@ return [
     // Annulation par le client (destinataire : owner/employé)
     'appointment_cancelled_by_client_title' => 'Réservation annulée',
     'appointment_cancelled_by_client_body'  => ':client_name a annulé son rendez-vous :service_name à :time.',
+
+    // Annulation par le salon (destinataire : client)
+    'appointment_cancelled_by_owner_title' => 'Rendez-vous annulé',
+    'appointment_cancelled_by_owner_body'  => ':company_name a annulé votre rendez-vous :service_name à :time.',
 ];

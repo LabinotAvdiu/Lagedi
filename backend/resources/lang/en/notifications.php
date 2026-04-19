@@ -30,4 +30,8 @@ return [
     // Cancellation by client (recipient: owner/employee)
     'appointment_cancelled_by_client_title' => 'Booking cancelled',
     'appointment_cancelled_by_client_body'  => ':client_name cancelled their :service_name appointment at :time.',
+
+    // Cancellation by salon (recipient: client)
+    'appointment_cancelled_by_owner_title' => 'Appointment cancelled',
+    'appointment_cancelled_by_owner_body'  => ':company_name cancelled your :service_name appointment at :time.',
 ];

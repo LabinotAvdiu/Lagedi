@@ -85,6 +85,10 @@ class OwnerAppointmentResource extends JsonResource
             // cancelled (shown on the cancelled appointment detail).
             'cancellationReason'   => $this->cancellation_reason,
             'cancelledByClientAt'  => $this->cancelled_by_client_at?->toIso8601String(),
+            // Owner-side refusal motif, shown in the planning detail and on
+            // the client's rejected-appointment card.
+            'rejectionReason'      => $this->rejection_reason,
+            'rejectedByOwnerAt'    => $this->rejected_by_owner_at?->toIso8601String(),
         ];
     }
 }

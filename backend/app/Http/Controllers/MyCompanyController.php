@@ -950,6 +950,7 @@ class MyCompanyController extends Controller
         // Allowed transitions:
         //   pending   → confirmed | rejected | cancelled
         //   confirmed → cancelled | no_show (no_show only if starts_at <= now)
+        //   rejected  → cancelled  (free the slot — blocked capacity released)
         // Anything else is rejected.
         // Note: no_show from pending is intentionally disallowed — the owner must
         // confirm the appointment first before marking a client as no-show.
@@ -962,6 +963,9 @@ class MyCompanyController extends Controller
             AppointmentStatus::Confirmed => [
                 AppointmentStatus::Cancelled,
                 AppointmentStatus::NoShow,
+            ],
+            AppointmentStatus::Rejected => [
+                AppointmentStatus::Cancelled,
             ],
             default => [],
         };
@@ -999,7 +1003,24 @@ class MyCompanyController extends Controller
             }
         }
 
-        $appointment->update(['status' => $newStatus]);
+        // Compose the update payload. The motif is persisted on different
+        // columns depending on the target status so the two concepts don't
+        // get confused in the owner's history.
+        $reason = $request->validated('reason');
+        $payload = ['status' => $newStatus];
+
+        if ($newStatus === AppointmentStatus::Rejected) {
+            $payload['rejection_reason']     = $reason;
+            $payload['rejected_by_owner_at'] = now();
+        } elseif ($newStatus === AppointmentStatus::Cancelled
+            && $currentStatus !== AppointmentStatus::Rejected) {
+            // Owner-initiated cancel on pending/confirmed — keep the motif in
+            // the cancel column. For the rejected → cancelled "free slot"
+            // flow we keep the original rejection_reason untouched.
+            $payload['cancellation_reason'] = $reason;
+        }
+
+        $appointment->update($payload);
 
         $dateStr = $appointment->date instanceof \Carbon\Carbon
             ? $appointment->date->format('Y-m-d')

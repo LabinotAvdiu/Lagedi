@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'date', 'start_time', 'end_time', 'status', 'notes',
     'is_walk_in', 'walk_in_first_name', 'walk_in_last_name', 'walk_in_phone',
     'cancelled_by_client_at', 'cancellation_reason',
+    'rejection_reason', 'rejected_by_owner_at',
 ])]
 class Appointment extends Model
 {
@@ -21,10 +22,11 @@ class Appointment extends Model
     protected function casts(): array
     {
         return [
-            'date'                  => 'date',
-            'status'                => AppointmentStatus::class,
-            'is_walk_in'            => 'boolean',
+            'date'                   => 'date',
+            'status'                 => AppointmentStatus::class,
+            'is_walk_in'             => 'boolean',
             'cancelled_by_client_at' => 'datetime',
+            'rejected_by_owner_at'   => 'datetime',
         ];
     }
 

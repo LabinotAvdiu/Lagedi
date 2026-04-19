@@ -132,7 +132,12 @@ class BookingController extends Controller
                     }
                 }
 
-                // Count overlapping bookings for this service+slot (pending/confirmed/rejected all hold capacity)
+                // Count overlapping bookings that still reserve capacity.
+                //   pending / confirmed / rejected → count (rejected means the
+                //     owner refused because they physically can't serve more
+                //     at that time, so the slot stays blocked).
+                //   cancelled / no_show            → freed (the visit was
+                //     cancelled or the client didn't come, the slot reopens).
                 $count = Appointment::where('company_id', $companyId)
                     ->where('service_id', $service->id)
                     ->where('date', $date)

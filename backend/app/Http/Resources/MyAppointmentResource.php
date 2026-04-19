@@ -73,6 +73,9 @@ class MyAppointmentResource extends JsonResource
             'minCancelHours'     => $minCancelHours,
             'cancelsBeforeAt'    => $cancellableUntil->toIso8601String(),
             'cancellationReason' => $this->cancellation_reason,
+            // Owner-side refusal motif — shown on the client's past card
+            // for transparency when the salon refused their request.
+            'rejectionReason'    => $this->rejection_reason,
 
             // Feature 2 — rappel approche
             'minutesUntilStart' => $minutesUntilStart,

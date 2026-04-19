@@ -1257,6 +1257,7 @@ class CompanyController extends Controller
      *
      * Contract: { dateTime, serviceId, available, remaining, max }
      *   - remaining = max_concurrent − count(bookings pending/confirmed/rejected for service+slot)
+     *     (cancelled / no_show release capacity — the visit never happened)
      *   - capacity override for date → max = min(service.max_concurrent, override.capacity)
      *   - break window or day_off → available:false, remaining:0
      *
@@ -1336,7 +1337,13 @@ class CompanyController extends Controller
             })
             ->get(['start_time', 'end_time']);
 
-        // --- Booked slots for this service + date (pending/confirmed/rejected) ---
+        // --- Booked slots for this service + date ---
+        // Pending / Confirmed / Rejected all hold capacity:
+        //   • pending & confirmed = the visit is scheduled
+        //   • rejected = owner refused because they're at capacity; the slot
+        //     stays blocked so no one else can book at the same time.
+        // Cancelled + no_show release capacity (the visit never took place,
+        // or was dropped by the client — slot reopens).
         $bookedRows = Appointment::where('company_id', $company->id)
             ->where('service_id', $service->id)
             ->where('date', $dateStr)
