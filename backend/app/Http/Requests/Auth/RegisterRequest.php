@@ -49,9 +49,12 @@ class RegisterRequest extends FormRequest
             'locale'       => ['nullable', 'string', 'in:fr,en,sq'],
 
             // Company-specific fields — required only when role=company
-            'company_name' => [$isCompany ? 'required' : 'nullable', 'string', 'max:255'],
-            'address'      => [$isCompany ? 'required' : 'nullable', 'string', 'max:255'],
-            'booking_mode' => ['nullable', 'string', 'in:employee_based,capacity_based'],
+            'company_name'   => [$isCompany ? 'required' : 'nullable', 'string', 'max:255'],
+            'address'        => [$isCompany ? 'required' : 'nullable', 'string', 'max:255'],
+            'booking_mode'   => ['nullable', 'string', 'in:employee_based,capacity_based'],
+            // Salon clientele filter — men-only, women-only or both. Displayed
+            // on the company card so clients can filter home by gender target.
+            'company_gender' => [$isCompany ? 'required' : 'nullable', 'string', 'in:men,women,both'],
 
             'latitude'  => ['nullable', 'numeric', 'between:-90,90'],
             'longitude' => ['nullable', 'numeric', 'between:-180,180'],

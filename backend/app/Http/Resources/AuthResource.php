@@ -21,10 +21,21 @@ class AuthResource extends JsonResource
 
     public function toArray(Request $request): array
     {
+        // Users with role=company but no owner pivot yet (fresh social sign-up)
+        // need to finish the company setup flow client-side. The flag lets the
+        // app redirect straight to the business-info screen.
+        $needsCompanySetup = false;
+        if ($this->resource->role?->value === 'company') {
+            $needsCompanySetup = ! $this->resource->companies()
+                ->wherePivot('role', 'owner')
+                ->exists();
+        }
+
         return [
-            'token'         => $this->token,
-            'refresh_token' => $this->refreshToken,
-            'user'          => new UserResource($this->resource),
+            'token'              => $this->token,
+            'refresh_token'      => $this->refreshToken,
+            'user'               => new UserResource($this->resource),
+            'needsCompanySetup'  => $needsCompanySetup,
         ];
     }
 }

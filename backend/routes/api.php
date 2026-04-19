@@ -39,6 +39,7 @@ Route::prefix('auth')->group(function () {
     // Social OAuth (stubs — implement server-side verification)
     Route::post('/google',   [AuthController::class, 'googleLogin']);
     Route::post('/facebook', [AuthController::class, 'facebookLogin']);
+    Route::post('/apple',    [AuthController::class, 'appleLogin']);
 
     // Password reset flow
     Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:3,1');
@@ -50,10 +51,12 @@ Route::prefix('auth')->group(function () {
 
     // Protected auth routes (require valid Sanctum token)
     Route::middleware('auth:sanctum')->group(function () {
-        Route::post('/logout',           [AuthController::class, 'logout']);
-        Route::get('/profile',           [AuthController::class, 'profile']);
-        Route::put('/profile',           [AuthController::class, 'updateProfile']);
-        Route::put('/change-password',   [AuthController::class, 'changePassword']);
+        Route::post('/logout',            [AuthController::class, 'logout']);
+        Route::get('/profile',            [AuthController::class, 'profile']);
+        Route::put('/profile',            [AuthController::class, 'updateProfile']);
+        Route::put('/change-password',    [AuthController::class, 'changePassword']);
+        // Social sign-up completion for company accounts.
+        Route::post('/complete-company',  [AuthController::class, 'completeCompanySignup']);
     });
 });
 
