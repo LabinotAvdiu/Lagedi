@@ -949,15 +949,20 @@ class MyCompanyController extends Controller
 
         // Allowed transitions:
         //   pending   → confirmed | rejected | cancelled
-        //   confirmed → cancelled
+        //   confirmed → cancelled | no_show (no_show only if starts_at <= now)
         // Anything else is rejected.
+        // Note: no_show from pending is intentionally disallowed — the owner must
+        // confirm the appointment first before marking a client as no-show.
         $allowed = match ($currentStatus) {
             AppointmentStatus::Pending => [
                 AppointmentStatus::Confirmed,
                 AppointmentStatus::Rejected,
                 AppointmentStatus::Cancelled,
             ],
-            AppointmentStatus::Confirmed => [AppointmentStatus::Cancelled],
+            AppointmentStatus::Confirmed => [
+                AppointmentStatus::Cancelled,
+                AppointmentStatus::NoShow,
+            ],
             default => [],
         };
 
@@ -966,6 +971,32 @@ class MyCompanyController extends Controller
                 'success' => false,
                 'message' => 'This status transition is not allowed.',
             ], 422);
+        }
+
+        // no_show : le RDV doit avoir déjà commencé (starts_at <= now) ET
+        // être dans la fenêtre des 24h post-démarrage. Au-delà, l'owner n'a
+        // plus le droit de le marquer — on évite la gestion rétroactive et
+        // on garde l'UI du planning centrée sur les événements récents.
+        if ($newStatus === AppointmentStatus::NoShow) {
+            $startsAt = \Carbon\Carbon::parse(
+                $appointment->date->format('Y-m-d') . ' ' . $appointment->start_time
+            );
+
+            if ($startsAt->isFuture()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cannot mark a future appointment as no-show.',
+                    'errors'  => ['status' => ['appointment-not-started-yet']],
+                ], 422);
+            }
+
+            if ($startsAt->diffInHours(now()) >= 24) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No-show window has closed (> 24h).',
+                    'errors'  => ['status' => ['no-show-window-closed']],
+                ], 422);
+            }
         }
 
         $appointment->update(['status' => $newStatus]);
@@ -1127,10 +1158,16 @@ class MyCompanyController extends Controller
 
             $statuses = $requestedStatuses;
         } else {
-            // Default: show slots that are booked or awaiting approval
+            // Default for the owner planning view: show every status except
+            // `rejected`. No-show and cancelled must stay visible so the owner
+            // gets a faithful picture of the day (otherwise the timeline
+            // appears empty right after marking someone as no-show). Rejected
+            // pendings never happened, so they stay out by default.
             $statuses = [
                 AppointmentStatus::Confirmed->value,
                 AppointmentStatus::Pending->value,
+                AppointmentStatus::NoShow->value,
+                AppointmentStatus::Cancelled->value,
             ];
         }
 
@@ -1149,7 +1186,10 @@ class MyCompanyController extends Controller
                   ->orderBy('start_time');
         }
 
-        return OwnerAppointmentResource::collection($query->get());
+        $appointments = $query->get();
+
+        return OwnerAppointmentResource::collection($appointments)
+            ->additional(['noShowCounts' => $this->batchNoShowCounts($appointments)]);
     }
 
     /**
@@ -1172,6 +1212,35 @@ class MyCompanyController extends Controller
             ->orderBy('start_time')
             ->get();
 
-        return OwnerAppointmentResource::collection($appointments);
+        return OwnerAppointmentResource::collection($appointments)
+            ->additional(['noShowCounts' => $this->batchNoShowCounts($appointments)]);
+    }
+
+    /**
+     * Calcule en une seule requête le nombre de no-show par user_id.
+     * Retourne un tableau [user_id => count].
+     *
+     * @param  \Illuminate\Support\Collection $appointments
+     * @return array<int, int>
+     */
+    private function batchNoShowCounts(\Illuminate\Support\Collection $appointments): array
+    {
+        $userIds = $appointments
+            ->whereNotNull('user_id')
+            ->pluck('user_id')
+            ->unique()
+            ->values()
+            ->all();
+
+        if (empty($userIds)) {
+            return [];
+        }
+
+        return Appointment::whereIn('user_id', $userIds)
+            ->where('status', AppointmentStatus::NoShow->value)
+            ->selectRaw('user_id, COUNT(*) as cnt')
+            ->groupBy('user_id')
+            ->pluck('cnt', 'user_id')
+            ->all();
     }
 }

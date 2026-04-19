@@ -39,7 +39,7 @@ class BookingController extends Controller
     {
         $appointments = Appointment::query()
             ->where('user_id', auth()->id())
-            ->with(['company', 'service', 'companyUser.user'])
+            ->with(['company', 'service', 'companyUser.user', 'review.user'])
             ->orderByDesc('date')
             ->orderByDesc('start_time')
             ->get();

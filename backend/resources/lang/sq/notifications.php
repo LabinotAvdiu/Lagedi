@@ -26,4 +26,8 @@ return [
     // Kujtesë klienti 2 orë para
     'appointment_reminder_2h_title' => 'Kujtesë — për 2 orë',
     'appointment_reminder_2h_body'  => 'Takimi juaj fillon për 2 orë, në :time.',
+
+    // Anulim nga klienti (marrësi: pronari/punonjësi)
+    'appointment_cancelled_by_client_title' => 'Rezervimi u anulua',
+    'appointment_cancelled_by_client_body'  => ':client_name anuloi takimin e :service_name në :time.',
 ];

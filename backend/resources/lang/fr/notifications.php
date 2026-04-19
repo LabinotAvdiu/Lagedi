@@ -26,4 +26,8 @@ return [
     // Rappel client 2h avant
     'appointment_reminder_2h_title' => 'Rappel — dans 2h',
     'appointment_reminder_2h_body'  => 'Votre rendez-vous commence dans 2h à :time.',
+
+    // Annulation par le client (destinataire : owner/employé)
+    'appointment_cancelled_by_client_title' => 'Réservation annulée',
+    'appointment_cancelled_by_client_body'  => ':client_name a annulé son rendez-vous :service_name à :time.',
 ];

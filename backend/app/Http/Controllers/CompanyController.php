@@ -261,7 +261,7 @@ class CompanyController extends Controller
         'id', 'name', 'description', 'phone', 'phone_secondary', 'email',
         'address', 'city', 'postal_code', 'country',
         'gender', 'booking_mode', 'rating', 'review_count', 'price_level',
-        'profile_image_url',
+        'profile_image_url', 'min_cancel_hours',
     ];
 
     public function show(int $id): JsonResponse

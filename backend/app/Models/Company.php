@@ -14,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'name', 'description', 'phone', 'phone_secondary', 'email',
     'address', 'city', 'postal_code', 'country',
     'gender', 'booking_mode', 'location', 'profile_image_url',
-    'rating', 'review_count', 'price_level',
+    'rating', 'review_count', 'price_level', 'min_cancel_hours',
 ])]
 class Company extends Model
 {
@@ -93,5 +93,10 @@ class Company extends Model
     public function capacityOverrides(): HasMany
     {
         return $this->hasMany(CompanyCapacityOverride::class);
+    }
+
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(Review::class);
     }
 }

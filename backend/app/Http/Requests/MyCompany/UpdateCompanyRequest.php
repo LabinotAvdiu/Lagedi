@@ -43,6 +43,7 @@ class UpdateCompanyRequest extends FormRequest
             'profile_image_url' => ['sometimes', 'nullable', 'url', 'max:2048'],
             'latitude'          => ['sometimes', 'nullable', 'numeric', 'between:-90,90'],
             'longitude'         => ['sometimes', 'nullable', 'numeric', 'between:-180,180'],
+            'min_cancel_hours'  => ['sometimes', 'integer', 'between:0,168'],
         ];
     }
 }
