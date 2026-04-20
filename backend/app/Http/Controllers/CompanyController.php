@@ -280,6 +280,10 @@ class CompanyController extends Controller
                     'serviceCategories.services',
                     'members' => fn ($q) => $q->where('is_active', true),
                     'members.user',
+                    // Load which services each employee can perform — used by
+                    // the share-with-preselected-employee flow to filter the
+                    // visible service list on the recipient's salon page.
+                    'members.services',
                 ])
                 ->find($id);
 
@@ -1442,6 +1446,9 @@ class CompanyController extends Controller
             ->where('is_active', true)
             ->map(fn ($member) => [
                 'id'          => (string) $member->id,
+                // userId — what the mobile app uses to match the logged-in
+                // user to an employee (share link `?employee=<userId>`).
+                'userId'      => $member->user ? (string) $member->user->id : null,
                 'name'        => $member->user
                     ? trim($member->user->first_name . ' ' . $member->user->last_name)
                     : null,

@@ -196,27 +196,57 @@ class AuthController extends Controller
     }
 
     // POST /auth/google
+    //
+    // Accepts either:
+    //   - id_token      (mobile / iOS / Android — preferred, JWT verifiable locally)
+    //   - access_token  (Flutter Web — google_sign_in_web only returns an OAuth2
+    //                    access token via the Token Client flow; we exchange it
+    //                    for user info server-side via tokeninfo + userinfo)
     public function googleLogin(Request $request): AuthResource|JsonResponse
     {
         $request->validate([
-            'id_token' => ['required', 'string'],
+            'id_token'     => ['required_without:access_token', 'nullable', 'string'],
+            'access_token' => ['required_without:id_token', 'nullable', 'string'],
             // Role hint — only honored when creating a brand-new account.
             // Existing users keep whatever role they already have so a user
             // can never be "upgraded" to company by social-login replay.
-            'role'     => ['sometimes', 'nullable', 'string', 'in:user,company'],
+            'role'         => ['sometimes', 'nullable', 'string', 'in:user,company'],
         ]);
 
-        $response = Http::get('https://oauth2.googleapis.com/tokeninfo', [
-            'id_token' => $request->input('id_token'),
-        ]);
+        $idToken     = $request->input('id_token');
+        $accessToken = $request->input('access_token');
 
-        if ($response->failed() || empty($response->json('email'))) {
-            return response()->json([
-                'errors' => ['id_token' => ['invalid_or_expired']],
-            ], 401);
+        if ($idToken) {
+            // id_token flow — tokeninfo returns email + name + aud from JWT claims.
+            $response = Http::get('https://oauth2.googleapis.com/tokeninfo', [
+                'id_token' => $idToken,
+            ]);
+            $payload = $response->failed() ? [] : $response->json();
+        } else {
+            // access_token flow — tokeninfo gives us aud/sub/email; userinfo gives name.
+            $tokenInfo = Http::get('https://oauth2.googleapis.com/tokeninfo', [
+                'access_token' => $accessToken,
+            ]);
+            if ($tokenInfo->failed() || empty($tokenInfo->json('email'))) {
+                return response()->json([
+                    'errors' => ['access_token' => ['invalid_or_expired']],
+                ], 401);
+            }
+            $payload = $tokenInfo->json();
+
+            // userinfo returns name/given_name/family_name/picture that tokeninfo doesn't.
+            $userInfo = Http::withToken($accessToken)
+                ->get('https://www.googleapis.com/oauth2/v3/userinfo');
+            if ($userInfo->successful()) {
+                $payload = array_merge($payload, $userInfo->json());
+            }
         }
 
-        $payload = $response->json();
+        if (empty($payload['email'])) {
+            return response()->json([
+                'errors' => ['token' => ['invalid_or_expired']],
+            ], 401);
+        }
 
         // Verify `aud` claim matches one of our own OAuth client IDs so an
         // attacker can't replay a token issued for a different app.
@@ -226,7 +256,7 @@ class AuthController extends Controller
         ));
         if (! empty($allowed) && ! in_array($payload['aud'] ?? '', $allowed, true)) {
             return response()->json([
-                'errors' => ['id_token' => ['aud_mismatch']],
+                'errors' => ['token' => ['aud_mismatch']],
             ], 401);
         }
 
@@ -321,6 +351,9 @@ class AuthController extends Controller
     {
         $request->validate([
             'access_token' => ['required', 'string'],
+            // Role hint — only honored when creating a brand-new account.
+            // Existing users keep their existing role (no social-login upgrade).
+            'role'         => ['sometimes', 'nullable', 'string', 'in:user,company'],
         ]);
 
         $response = Http::get('https://graph.facebook.com/me', [
@@ -336,13 +369,15 @@ class AuthController extends Controller
 
         $payload = $response->json();
 
+        $requestedRole = $request->input('role') === 'company' ? 'company' : 'user';
+
         $user = User::firstOrCreate(
             ['email' => $payload['email']],
             [
                 'first_name'        => $payload['first_name'] ?? explode(' ', $payload['name'] ?? '', 2)[0] ?? '',
                 'last_name'         => $payload['last_name']  ?? explode(' ', $payload['name'] ?? '', 2)[1] ?? '',
                 'password'          => Hash::make(Str::random(32)),
-                'role'              => 'user',
+                'role'              => $requestedRole,
                 'email_verified_at' => now(),
             ]
         );
@@ -369,6 +404,8 @@ class AuthController extends Controller
             'identity_token' => ['required', 'string'],
             'first_name'     => ['sometimes', 'nullable', 'string', 'max:80'],
             'last_name'      => ['sometimes', 'nullable', 'string', 'max:80'],
+            // Role hint — only honored when creating a brand-new account.
+            'role'           => ['sometimes', 'nullable', 'string', 'in:user,company'],
         ]);
 
         $idToken = $request->input('identity_token');
@@ -439,13 +476,15 @@ class AuthController extends Controller
         // never end up with a user without an email column.
         $lookupEmail = $email ?? ($sub . '@apple.invalid');
 
+        $requestedRole = $request->input('role') === 'company' ? 'company' : 'user';
+
         $user = User::firstOrCreate(
             ['email' => $lookupEmail],
             [
                 'first_name'        => (string) $request->input('first_name', ''),
                 'last_name'         => (string) $request->input('last_name', ''),
                 'password'          => Hash::make(Str::random(32)),
-                'role'              => 'user',
+                'role'              => $requestedRole,
                 'email_verified_at' => now(),
             ]
         );

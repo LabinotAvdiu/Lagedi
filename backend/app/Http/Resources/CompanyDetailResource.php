@@ -150,6 +150,13 @@ class CompanyDetailResource extends JsonResource
             ->where('is_active', true)
             ->map(fn ($member) => [
                 'id'          => (string) $member->id,
+                // userId — required by the mobile app to match the logged-in
+                // user to an employee of the salon (e.g. share-me-as-pro
+                // toggle, ?employee=<userId> query param from shared links).
+                // Pivot id would collide with other tables' ids.
+                'userId'      => $member->relationLoaded('user') && $member->user
+                    ? (string) $member->user->id
+                    : null,
                 'name'        => $member->relationLoaded('user')
                     ? trim($member->user->first_name . ' ' . $member->user->last_name)
                     : null,
@@ -157,6 +164,12 @@ class CompanyDetailResource extends JsonResource
                     ? ($member->user->profile_image_url ?? $member->profile_photo)
                     : $member->profile_photo,
                 'specialties' => $member->specialties ?? [],
+                // serviceIds — which services this pro can perform. Used to
+                // filter the service list on the company detail page when the
+                // visitor came from a share link with a preselected employee.
+                'serviceIds'  => $member->relationLoaded('services')
+                    ? $member->services->pluck('id')->map(fn ($id) => (string) $id)->values()->all()
+                    : [],
             ])
             ->values()
             ->toArray();
