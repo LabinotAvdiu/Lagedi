@@ -300,7 +300,6 @@
         </div>
       </div>
 
-      <!-- Alt -->
       <div class="pro-alt">
         <span class="alt-text">{{ t("auth.login.title") }}</span>
         <router-link to="/connexion" class="alt-link">{{
@@ -376,7 +375,7 @@ const onSubmit = async () => {
     localStorage.setItem("user", JSON.stringify(data.user));
     setLoggedIn(true);
 
-    router.push("/");
+    router.push("/dashboard");
   } catch (err) {
     const firstError = err?.errors ? Object.values(err.errors)[0]?.[0] : null;
     errorMessage.value = firstError ?? err?.message ?? t("auth.error.generic");

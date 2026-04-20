@@ -118,6 +118,61 @@
       "already_taken": "Kjo adresë email është e zënë.",
       "min_8_characters": "Fjalëkalimi duhet të ketë të paktën 8 karaktere.",
       "invalid_credentials": "Email ose fjalëkalim i gabuar."
+    },
+    "forgot": {
+      "title": "Keni harruar fjalëkalimin?",
+      "subtitle": "Shkruani emailin tuaj dhe do t'ju dërgojmë një lidhje për rivendosje.",
+      "emailLabel": "Adresa email",
+      "submit": "Dërgo lidhjen",
+      "success": "Nëse ekziston një llogari për këtë email, do të merrni një lidhje rivendosjeje.",
+      "backToLogin": "Kthehu tek hyrja"
+    },
+    "reset": {
+      "title": "Fjalëkalim i ri",
+      "subtitle": "Zgjidhni një fjalëkalim të ri të sigurt.",
+      "passwordLabel": "Fjalëkalim i ri",
+      "confirmLabel": "Konfirmo fjalëkalimin",
+      "submit": "Rivendos",
+      "success": "Fjalëkalimi u rivendos me sukses! Mund të hyni tani.",
+      "mismatch": "Fjalëkalimet nuk përputhen.",
+      "invalidToken": "Lidhje e pavlefshme ose e skaduar. Provoni përsëri.",
+      "backToLogin": "Shkoni tek hyrja"
     }
+  },
+  "languages": {
+    "fr": "Français",
+    "en": "English",
+    "sq": "Shqip"
+  },
+  "profile": {
+    "title": "Profili im",
+    "subtitle": "Menaxhoni informacionet tuaja personale",
+    "personalInfo": "Informacione personale",
+    "firstName": "Emri",
+    "lastName": "Mbiemri",
+    "email": "Email",
+    "emailReadonly": "Email-i nuk mund të ndryshohet",
+    "phone": "Telefoni",
+    "phonePlaceholder": "p.sh. +355 69 123 4567",
+    "city": "Qyteti",
+    "cityPlaceholder": "Qyteti juaj",
+    "edit": "Ndrysho",
+    "save": "Ruaj",
+    "cancel": "Anulo",
+    "security": "Siguria",
+    "currentPassword": "Fjalëkalimi aktual",
+    "newPassword": "Fjalëkalim i ri",
+    "confirmPassword": "Konfirmo fjalëkalimin",
+    "changePassword": "Ndrysho fjalëkalimin",
+    "saveSuccess": "Profili u përditësua me sukses!",
+    "passwordSuccess": "Fjalëkalimi u ndryshua me sukses!",
+    "passwordError": "Fjalëkalimi aktual është i gabuar.",
+    "passwordMismatch": "Fjalëkalimet nuk përputhen.",
+    "genericError": "Ndodhi një gabim. Ju lutemi provoni përsëri.",
+    "roleOwner": "Pronar",
+    "roleEmployee": "Punonjës",
+    "roleUser": "Klient",    "settingsSection": "Cilësimet",    "language": "Gjuha",
+    "languageSubtitle": "Zgjidhni gjuhën e shfaqjes",
+    "languageSaved": "Gjuha u përditësua!"
   }
 }

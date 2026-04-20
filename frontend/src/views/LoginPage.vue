@@ -117,7 +117,7 @@ const onSubmit = async () => {
     localStorage.setItem("user", JSON.stringify(data.user));
     setLoggedIn(true);
 
-    router.push("/");
+    router.push(data.user?.role === "company" ? "/dashboard" : "/");
   } catch (err) {
     errorMessage.value =
       t(`auth.error.${err?.errors?.email?.[0]}`) ?? t("auth.error.generic");

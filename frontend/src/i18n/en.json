@@ -115,6 +115,63 @@
       "generic": "An error occurred. Please try again.",
       "invalid_credentials": "Invalid email or password.",
       "account_locked": "Account temporarily locked. Please try again later."
+    },
+    "forgot": {
+      "title": "Forgot your password?",
+      "subtitle": "Enter your email and we'll send you a reset link.",
+      "emailLabel": "Email address",
+      "submit": "Send reset link",
+      "success": "If an account exists for this email, you'll receive a reset link shortly.",
+      "backToLogin": "Back to login"
+    },
+    "reset": {
+      "title": "New password",
+      "subtitle": "Choose a new secure password.",
+      "passwordLabel": "New password",
+      "confirmLabel": "Confirm password",
+      "submit": "Reset password",
+      "success": "Password reset successfully! You can now sign in.",
+      "mismatch": "Passwords do not match.",
+      "invalidToken": "Invalid or expired link. Please try again.",
+      "backToLogin": "Go to login"
     }
+  },
+  "languages": {
+    "fr": "Français",
+    "en": "English",
+    "sq": "Shqip"
+  },
+  "profile": {
+    "title": "My Profile",
+    "subtitle": "Manage your personal information",
+    "personalInfo": "Personal information",
+    "firstName": "First name",
+    "lastName": "Last name",
+    "email": "Email",
+    "emailReadonly": "Email cannot be changed",
+    "phone": "Phone",
+    "phonePlaceholder": "e.g. +33 6 12 34 56 78",
+    "city": "City",
+    "cityPlaceholder": "Your city",
+    "edit": "Edit",
+    "save": "Save",
+    "cancel": "Cancel",
+    "security": "Security",
+    "currentPassword": "Current password",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm password",
+    "changePassword": "Change password",
+    "saveSuccess": "Profile updated successfully!",
+    "passwordSuccess": "Password changed successfully!",
+    "passwordError": "Current password is incorrect.",
+    "passwordMismatch": "Passwords do not match.",
+    "genericError": "An error occurred. Please try again.",
+    "roleOwner": "Owner",
+    "roleEmployee": "Employee",
+    "roleUser": "Client",
+    "settingsSection": "Settings",
+    "language": "Language",
+    "languageSubtitle": "Choose your display language",
+    "languageSaved": "Language updated!"
   }
 }

@@ -7,9 +7,13 @@
     </div>
     <nav class="header-center">
       <router-link to="/" class="nav-link">{{ t("nav.home") }}</router-link>
+      <router-link v-if="isCompany" to="/dashboard" class="nav-link nav-link--dashboard">
+        <i class="pi pi-th-large" />
+        Dashboard
+      </router-link>
     </nav>
     <div class="header-right">
-      <router-link to="/pro" class="nav-link nav-link--pro">
+      <router-link v-if="!isLoggedIn" to="/pro" class="nav-link nav-link--pro">
         <i class="pi pi-briefcase" />
         {{ t("nav.iAmProfessional") }}
       </router-link>
@@ -33,7 +37,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
+import { ref, computed, onMounted, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import Button from "primevue/button";
@@ -46,11 +50,32 @@ const router = useRouter();
 
 const accountMenu = ref();
 
+const isCompany = computed(() => {
+  if (!isLoggedIn.value) return false;
+  try {
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    return user.role === "company";
+  } catch {
+    return false;
+  }
+});
+
 const languages = [
-  { label: "FR", value: "fr" },
-  { label: "EN", value: "en" },
-  { label: "SH", value: "sh" },
+  { label: "🇫🇷 Français", value: "fr" },
+  { label: "🇬🇧 English", value: "en" },
+  { label: "🇦🇱 Shqip", value: "sq" },
 ];
+
+onMounted(() => {
+  const saved = localStorage.getItem("locale");
+  if (saved && ["fr", "en", "sq"].includes(saved)) {
+    locale.value = saved;
+  }
+});
+
+watch(locale, (v) => {
+  localStorage.setItem("locale", v);
+});
 
 const accountMenuItems = computed(() => [
   {

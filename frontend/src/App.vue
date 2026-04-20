@@ -1,12 +1,17 @@
 <template>
   <div id="app">
-    <AppHeader />
+    <AppHeader v-if="!isDashboard" />
     <router-view />
   </div>
 </template>
 
 <script setup>
+import { computed } from "vue";
+import { useRoute } from "vue-router";
 import AppHeader from "./components/AppHeader.vue";
+
+const route = useRoute();
+const isDashboard = computed(() => route.path.startsWith("/dashboard"));
 </script>
 
 <style>
@@ -54,6 +59,44 @@ import AppHeader from "./components/AppHeader.vue";
   --color-white-a08: rgba(255, 255, 255, 0.08);
 
   --color-shadow-dark: rgba(0, 0, 0, 0.25);
+  --color-shadow-sm: rgba(0, 0, 0, 0.04);
+  --color-shadow-md: rgba(0, 0, 0, 0.06);
+  --color-shadow-lg: rgba(0, 0, 0, 0.1);
+  --color-shadow-xl: rgba(0, 0, 0, 0.12);
+
+  --color-overlay-dark: rgba(0, 0, 0, 0.65);
+  --color-overlay-mid: rgba(0, 0, 0, 0.55);
+
+  --color-near-black: #111111;
+  --color-accent-gold-light: #e8c96a;
+
+  --color-white-a06: rgba(255, 255, 255, 0.06);
+  --color-white-a45: rgba(255, 255, 255, 0.45);
+
+  --color-danger-bg: #fef2f2;
+  --color-danger-border: #fecaca;
+  --color-danger-light: #f87171;
+  --color-danger-hover-bg: rgba(220, 38, 38, 0.12);
+
+  --color-success: #15803d;
+  --color-success-mid: #16a34a;
+  --color-success-bright: #22c55e;
+  --color-success-bg: #f0fdf4;
+  --color-success-bg-mid: #dcfce7;
+  --color-success-border: #bbf7d0;
+
+  --color-warning: #f59e0b;
+  --color-warning-bg: #fef3c7;
+  --color-warning-text: #92400e;
+
+  --color-info: #3b82f6;
+  --color-info-hover: #2563eb;
+  --color-info-bg: #eff6ff;
+  --color-info-text: #1d4ed8;
+
+  --color-neutral-100: #f1f5f9;
+  --color-neutral-400: #94a3b8;
+  --color-neutral-500: #64748b;
 
   --color-bg: #fafafa;
   --color-bg-page: #f4f4f4;

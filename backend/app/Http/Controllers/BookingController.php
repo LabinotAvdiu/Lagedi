@@ -16,6 +16,7 @@ use App\Models\EmployeeSchedule;
 use App\Models\Service;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\DB;
 
@@ -164,6 +165,40 @@ class BookingController extends Controller
             'success' => true,
             'data'    => new AppointmentResource($result),
         ], 201);
+    }
+
+    public function updateStatus(Request $request, int $id): JsonResponse
+    {
+        $request->validate([
+            'status' => ['required', 'string', 'in:confirmed,cancelled,completed'],
+        ]);
+
+        $user = $request->user();
+
+        $appointment = Appointment::with(['company.members'])->find($id);
+
+        if (! $appointment) {
+            return response()->json(['success' => false, 'message' => 'Appointment not found.'], 404);
+        }
+
+        $isClient = $appointment->user_id === $user->id;
+        $isEmployee = $appointment->company?->members
+            ->where('user_id', $user->id)
+            ->where('is_active', true)
+            ->isNotEmpty();
+
+        if (! $isClient && ! $isEmployee) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized.'], 403);
+        }
+
+        $newStatus = AppointmentStatus::from($request->input('status'));
+        $appointment->status = $newStatus;
+        $appointment->save();
+
+        return response()->json([
+            'success' => true,
+            'data'    => new AppointmentResource($appointment),
+        ]);
     }
 
     /**

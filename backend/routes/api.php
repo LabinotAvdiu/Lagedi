@@ -66,6 +66,7 @@ Route::get('/companies/{id}/slots',            [CompanyController::class, 'slots
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/bookings',  [BookingController::class, 'index']);
     Route::post('/bookings', [BookingController::class, 'store']);
+    Route::patch('/bookings/{id}/status', [BookingController::class, 'updateStatus']);
 });
 
 /*
