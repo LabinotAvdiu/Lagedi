@@ -119,6 +119,12 @@ Route::middleware('auth:sanctum')->prefix('my-schedule')->group(function () {
     Route::post('/walk-in',  [MyScheduleController::class, 'storeWalkIn']);
     Route::get('/upcoming',  [MyScheduleController::class, 'upcoming']);
 
+    // Employee-scoped appointment mutation — cancel / no-show on the
+    // employee's own bookings (mirrors the owner's /my-company/... endpoint
+    // but guarded by company_user_id ownership).
+    Route::put('/appointments/{id}/status',
+        [MyScheduleController::class, 'updateMyAppointmentStatus']);
+
     // Work schedule settings
     Route::get('/settings',              [MyScheduleController::class, 'settings']);
     Route::put('/hours',                 [MyScheduleController::class, 'updateHours']);
