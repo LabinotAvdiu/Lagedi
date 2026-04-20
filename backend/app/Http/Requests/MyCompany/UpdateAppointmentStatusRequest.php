@@ -16,7 +16,10 @@ class UpdateAppointmentStatusRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'status' => ['required', 'string', 'in:confirmed,rejected,cancelled'],
+            'status' => ['required', 'string', 'in:confirmed,rejected,cancelled,no_show'],
+            // Optional owner-typed motif. Used on rejected (shown to client)
+            // and on owner-initiated cancellation (kept in history).
+            'reason' => ['sometimes', 'nullable', 'string', 'max:500'],
         ];
     }
 }

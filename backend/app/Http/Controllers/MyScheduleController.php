@@ -123,6 +123,90 @@ class MyScheduleController extends Controller
     }
 
     // -------------------------------------------------------------------------
+    // PATCH /api/my-schedule/appointments/{id}/status
+    //
+    // Lets an employee cancel or no-show one of THEIR appointments without
+    // going through the owner. Mirrors MyCompanyController::updateAppointmentStatus
+    // but scoped to `company_user_id = <logged-in employee's pivot>` so an
+    // employee can never touch a colleague's booking.
+    // -------------------------------------------------------------------------
+    public function updateMyAppointmentStatus(\Illuminate\Http\Request $request, int $id): JsonResponse
+    {
+        $companyUser = $this->resolveEmployeeCompanyUser();
+        if ($companyUser instanceof JsonResponse) {
+            return $companyUser;
+        }
+
+        $validated = $request->validate([
+            'status'  => ['required', 'in:cancelled,no_show'],
+            'reason'  => ['sometimes', 'nullable', 'string', 'max:500'],
+        ]);
+
+        $appointment = Appointment::where('id', $id)
+            ->where('company_user_id', $companyUser->id)
+            ->first();
+        if (! $appointment) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Appointment not found.',
+            ], 404);
+        }
+
+        $newStatus = AppointmentStatus::from($validated['status']);
+        $current = $appointment->status instanceof AppointmentStatus
+            ? $appointment->status
+            : AppointmentStatus::from((string) $appointment->status);
+
+        // Employees can only act on live bookings. Cancellation works from
+        // pending/confirmed; no_show requires a confirmed booking that has
+        // already started (same rule as the owner flow).
+        $allowed = match ($current) {
+            AppointmentStatus::Pending => [AppointmentStatus::Cancelled],
+            AppointmentStatus::Confirmed => [
+                AppointmentStatus::Cancelled,
+                AppointmentStatus::NoShow,
+            ],
+            default => [],
+        };
+        if (! in_array($newStatus, $allowed, true)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This status transition is not allowed.',
+            ], 422);
+        }
+
+        if ($newStatus === AppointmentStatus::NoShow) {
+            $startsAt = Carbon::parse(
+                $appointment->date->format('Y-m-d') . ' ' . $appointment->start_time
+            );
+            if ($startsAt->isFuture()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cannot mark an upcoming appointment as no-show.',
+                ], 422);
+            }
+            if (Carbon::now()->diffInHours($startsAt) > 24) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No-show window has closed (24h).',
+                ], 422);
+            }
+        }
+
+        $appointment->status = $newStatus;
+        if ($newStatus === AppointmentStatus::Cancelled) {
+            $appointment->cancelled_by_client_at = Carbon::now();
+            $appointment->cancellation_reason = $validated['reason'] ?? null;
+        }
+        $appointment->save();
+
+        return response()->json([
+            'success' => true,
+            'data'    => $this->formatAppointmentSlot($appointment->fresh(['user', 'service'])),
+        ]);
+    }
+
+    // -------------------------------------------------------------------------
     // GET /api/my-schedule/upcoming
     // -------------------------------------------------------------------------
 
@@ -544,7 +628,10 @@ class MyScheduleController extends Controller
             })
             ->get();
 
-        // 5. Appointments for this date
+        // 5. Appointments for this date — active bookings only. Cancelled
+        // and no-show entries are hidden so the freed slot is immediately
+        // re-usable (a walk-in at the same time would otherwise collide
+        // visually with a stale muted card).
         $appointments = Appointment::query()
             ->where('company_user_id', $companyUser->id)
             ->whereDate('date', $date->toDateString())
@@ -617,10 +704,20 @@ class MyScheduleController extends Controller
             $clientPhone     = $appointment->user?->phone;
         }
 
+        $status = $appointment->status instanceof AppointmentStatus
+            ? $appointment->status->value
+            : (string) $appointment->status;
+
         return [
             'id'              => (string) $appointment->id,
+            // `date` is only included by endpoints that can return an appt
+            // from another day (e.g. GET /my-schedule/upcoming). The single
+            // day GET /my-schedule list already knows the date — omitting it
+            // there keeps the payload lean.
+            'date'            => $appointment->date?->toDateString(),
             'startTime'       => substr($appointment->start_time, 0, 5),
             'endTime'         => substr($appointment->end_time, 0, 5),
+            'status'          => $status,
             'clientFirstName' => $clientFirstName,
             'clientLastName'  => $clientLastName,
             'clientPhone'     => $clientPhone,
@@ -643,8 +740,14 @@ class MyScheduleController extends Controller
     private function formatCompany(Company $company): array
     {
         return [
-            'id'   => (string) $company->id,
-            'name' => $company->name,
+            'id'          => (string) $company->id,
+            'name'        => $company->name,
+            // bookingMode lets the planning UI hide capacity-only affordances
+            // (pending-approvals banner) and enable employee-based-only ones
+            // (next-appointment banner) when viewed from an employee account.
+            'bookingMode' => $company->booking_mode instanceof \App\Enums\BookingMode
+                ? $company->booking_mode->value
+                : (string) $company->booking_mode,
         ];
     }
 }

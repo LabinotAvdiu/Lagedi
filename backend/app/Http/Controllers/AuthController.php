@@ -42,6 +42,7 @@ class AuthController extends Controller
                 'password'   => Hash::make($data['password']),
                 'phone'      => $data['phone'] ?? null,
                 'city'       => $data['city'] ?? null,
+                'gender'     => $data['gender'] ?? null,
                 'role'       => $role,
                 'locale'     => $data['locale'] ?? 'fr',
             ]);
@@ -53,6 +54,7 @@ class AuthController extends Controller
                     'city'         => $data['city'] ?? '',
                     'phone'        => $data['phone'] ?? null,
                     'email'        => $data['email'],
+                    'gender'       => $data['company_gender'],
                     'booking_mode' => $data['booking_mode'] ?? 'employee_based',
                 ]);
 
@@ -194,26 +196,74 @@ class AuthController extends Controller
     }
 
     // POST /auth/google
+    //
+    // Accepts either:
+    //   - id_token      (mobile / iOS / Android — preferred, JWT verifiable locally)
+    //   - access_token  (Flutter Web — google_sign_in_web only returns an OAuth2
+    //                    access token via the Token Client flow; we exchange it
+    //                    for user info server-side via tokeninfo + userinfo)
     public function googleLogin(Request $request): AuthResource|JsonResponse
     {
         $request->validate([
-            'id_token' => ['required', 'string'],
+            'id_token'     => ['required_without:access_token', 'nullable', 'string'],
+            'access_token' => ['required_without:id_token', 'nullable', 'string'],
+            // Role hint — only honored when creating a brand-new account.
+            // Existing users keep whatever role they already have so a user
+            // can never be "upgraded" to company by social-login replay.
+            'role'         => ['sometimes', 'nullable', 'string', 'in:user,company'],
         ]);
 
-        $response = Http::get('https://oauth2.googleapis.com/tokeninfo', [
-            'id_token' => $request->input('id_token'),
-        ]);
+        $idToken     = $request->input('id_token');
+        $accessToken = $request->input('access_token');
 
-        if ($response->failed() || empty($response->json('email'))) {
+        if ($idToken) {
+            // id_token flow — tokeninfo returns email + name + aud from JWT claims.
+            $response = Http::get('https://oauth2.googleapis.com/tokeninfo', [
+                'id_token' => $idToken,
+            ]);
+            $payload = $response->failed() ? [] : $response->json();
+        } else {
+            // access_token flow — tokeninfo gives us aud/sub/email; userinfo gives name.
+            $tokenInfo = Http::get('https://oauth2.googleapis.com/tokeninfo', [
+                'access_token' => $accessToken,
+            ]);
+            if ($tokenInfo->failed() || empty($tokenInfo->json('email'))) {
+                return response()->json([
+                    'errors' => ['access_token' => ['invalid_or_expired']],
+                ], 401);
+            }
+            $payload = $tokenInfo->json();
+
+            // userinfo returns name/given_name/family_name/picture that tokeninfo doesn't.
+            $userInfo = Http::withToken($accessToken)
+                ->get('https://www.googleapis.com/oauth2/v3/userinfo');
+            if ($userInfo->successful()) {
+                $payload = array_merge($payload, $userInfo->json());
+            }
+        }
+
+        if (empty($payload['email'])) {
             return response()->json([
-                'errors' => ['id_token' => ['invalid_or_expired']],
+                'errors' => ['token' => ['invalid_or_expired']],
             ], 401);
         }
 
-        $payload = $response->json();
+        // Verify `aud` claim matches one of our own OAuth client IDs so an
+        // attacker can't replay a token issued for a different app.
+        $allowed = array_filter(array_map(
+            'trim',
+            explode(',', (string) config('services.google.allowed_client_ids', ''))
+        ));
+        if (! empty($allowed) && ! in_array($payload['aud'] ?? '', $allowed, true)) {
+            return response()->json([
+                'errors' => ['token' => ['aud_mismatch']],
+            ], 401);
+        }
 
         $name      = $payload['name'] ?? trim(($payload['given_name'] ?? '') . ' ' . ($payload['family_name'] ?? ''));
         $nameParts = explode(' ', $name, 2);
+
+        $requestedRole = $request->input('role') === 'company' ? 'company' : 'user';
 
         $user = User::firstOrCreate(
             ['email' => $payload['email']],
@@ -221,7 +271,7 @@ class AuthController extends Controller
                 'first_name'        => $nameParts[0] ?? '',
                 'last_name'         => $nameParts[1] ?? '',
                 'password'          => Hash::make(Str::random(32)),
-                'role'              => 'user',
+                'role'              => $requestedRole,
                 'email_verified_at' => now(),
             ]
         );
@@ -231,11 +281,79 @@ class AuthController extends Controller
         return new AuthResource($user, $accessToken, $refreshToken);
     }
 
+    // POST /auth/complete-company
+    //
+    // Used by clients who signed up via social auth as role=company — they are
+    // authenticated but the Company record doesn't exist yet. This endpoint
+    // creates the Company + owner pivot so their salon is fully provisioned.
+    public function completeCompanySignup(Request $request): AuthResource|JsonResponse
+    {
+        $user = $request->user();
+
+        if (! $user || $user->role?->value !== 'company') {
+            return response()->json([
+                'errors' => ['role' => ['not_a_company_account']],
+            ], 403);
+        }
+
+        // Reject if the user already owns a company — idempotency safeguard.
+        $alreadyHasCompany = $user->companies()
+            ->wherePivot('role', 'owner')
+            ->exists();
+        if ($alreadyHasCompany) {
+            return response()->json([
+                'errors' => ['company' => ['already_setup']],
+            ], 409);
+        }
+
+        $data = $request->validate([
+            'company_name'   => ['required', 'string', 'max:255'],
+            'address'        => ['required', 'string', 'max:255'],
+            'city'           => ['nullable', 'string', 'max:100'],
+            'phone'          => ['nullable', 'string', 'max:20'],
+            'company_gender' => ['required', 'string', 'in:men,women,both'],
+            'booking_mode'   => ['nullable', 'string', 'in:employee_based,capacity_based'],
+            'latitude'       => ['nullable', 'numeric', 'between:-90,90'],
+            'longitude'      => ['nullable', 'numeric', 'between:-180,180'],
+        ]);
+
+        DB::transaction(function () use ($user, $data): void {
+            $company = Company::create([
+                'name'         => $data['company_name'],
+                'address'      => $data['address'],
+                'city'         => $data['city'] ?? '',
+                'phone'        => $data['phone'] ?? null,
+                'email'        => $user->email,
+                'gender'       => $data['company_gender'],
+                'booking_mode' => $data['booking_mode'] ?? 'employee_based',
+            ]);
+
+            if (isset($data['latitude'], $data['longitude'])) {
+                DB::statement(
+                    'UPDATE companies SET location = ST_SRID(POINT(?, ?), 4326) WHERE id = ?',
+                    [(float) $data['latitude'], (float) $data['longitude'], $company->id]
+                );
+            }
+
+            $company->users()->attach($user->id, [
+                'role'      => 'owner',
+                'is_active' => true,
+            ]);
+        });
+
+        [$accessToken, $refreshToken] = $this->issueTokenPair($user);
+
+        return new AuthResource($user->fresh(), $accessToken, $refreshToken);
+    }
+
     // POST /auth/facebook
     public function facebookLogin(Request $request): AuthResource|JsonResponse
     {
         $request->validate([
             'access_token' => ['required', 'string'],
+            // Role hint — only honored when creating a brand-new account.
+            // Existing users keep their existing role (no social-login upgrade).
+            'role'         => ['sometimes', 'nullable', 'string', 'in:user,company'],
         ]);
 
         $response = Http::get('https://graph.facebook.com/me', [
@@ -251,13 +369,122 @@ class AuthController extends Controller
 
         $payload = $response->json();
 
+        $requestedRole = $request->input('role') === 'company' ? 'company' : 'user';
+
         $user = User::firstOrCreate(
             ['email' => $payload['email']],
             [
                 'first_name'        => $payload['first_name'] ?? explode(' ', $payload['name'] ?? '', 2)[0] ?? '',
                 'last_name'         => $payload['last_name']  ?? explode(' ', $payload['name'] ?? '', 2)[1] ?? '',
                 'password'          => Hash::make(Str::random(32)),
-                'role'              => 'user',
+                'role'              => $requestedRole,
+                'email_verified_at' => now(),
+            ]
+        );
+
+        [$accessToken, $refreshToken] = $this->issueTokenPair($user);
+
+        return new AuthResource($user, $accessToken, $refreshToken);
+    }
+
+    // POST /auth/apple
+    //
+    // Verifies the identity_token issued by Apple by:
+    //  1. Fetching Apple's JWKS (public keys) from appleid.apple.com/auth/keys
+    //  2. Decoding the JWT header to pick the matching key by kid
+    //  3. Verifying the signature with that RS256 public key
+    //  4. Checking iss = https://appleid.apple.com and aud = configured client_id
+    //  5. Looking up / creating the User by email (or sub fallback)
+    //
+    // Apple only sends first_name / last_name on the VERY FIRST sign-in, so the
+    // client forwards whatever it received and we persist it on account creation.
+    public function appleLogin(Request $request): AuthResource|JsonResponse
+    {
+        $request->validate([
+            'identity_token' => ['required', 'string'],
+            'first_name'     => ['sometimes', 'nullable', 'string', 'max:80'],
+            'last_name'      => ['sometimes', 'nullable', 'string', 'max:80'],
+            // Role hint — only honored when creating a brand-new account.
+            'role'           => ['sometimes', 'nullable', 'string', 'in:user,company'],
+        ]);
+
+        $idToken = $request->input('identity_token');
+
+        // --- 1. Decode header to pick the right Apple public key -------------
+        $segments = explode('.', $idToken);
+        if (count($segments) !== 3) {
+            return response()->json([
+                'errors' => ['identity_token' => ['malformed']],
+            ], 401);
+        }
+
+        $header = json_decode(base64_decode(strtr($segments[0], '-_', '+/')), true);
+        $kid    = $header['kid'] ?? null;
+        $alg    = $header['alg'] ?? null;
+
+        if (! $kid || $alg !== 'RS256') {
+            return response()->json([
+                'errors' => ['identity_token' => ['unsupported_header']],
+            ], 401);
+        }
+
+        // --- 2. Fetch Apple JWKS (cached 1h to avoid hammering Apple) --------
+        $jwks = cache()->remember('apple_jwks', 3600, function () {
+            return Http::timeout(5)
+                ->get('https://appleid.apple.com/auth/keys')
+                ->json('keys') ?? [];
+        });
+
+        $key = collect($jwks)->firstWhere('kid', $kid);
+        if (! $key) {
+            return response()->json([
+                'errors' => ['identity_token' => ['unknown_key']],
+            ], 401);
+        }
+
+        // --- 3. Verify signature using firebase/php-jwt ----------------------
+        try {
+            $publicKey = \Firebase\JWT\JWK::parseKey($key);
+            $decoded   = (array) \Firebase\JWT\JWT::decode($idToken, $publicKey);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'errors' => ['identity_token' => ['invalid_signature']],
+            ], 401);
+        }
+
+        // --- 4. Validate iss and aud -----------------------------------------
+        $expectedAud = config('services.apple.client_id');
+        if (($decoded['iss'] ?? null) !== 'https://appleid.apple.com'
+            || ($expectedAud && ($decoded['aud'] ?? null) !== $expectedAud)) {
+            return response()->json([
+                'errors' => ['identity_token' => ['claim_mismatch']],
+            ], 401);
+        }
+
+        // --- 5. Resolve / create the user ------------------------------------
+        $email = $decoded['email'] ?? null;
+        $sub   = $decoded['sub']   ?? null;
+
+        if (! $email && ! $sub) {
+            return response()->json([
+                'errors' => ['identity_token' => ['missing_identity']],
+            ], 401);
+        }
+
+        // Apple "hide my email" relays still have a stable email per-app — use
+        // it as the unique identifier, fall back to sub@apple.invalid so we
+        // never end up with a user without an email column.
+        $lookupEmail = $email ?? ($sub . '@apple.invalid');
+
+        $requestedRole = $request->input('role') === 'company' ? 'company' : 'user';
+
+        $user = User::firstOrCreate(
+            ['email' => $lookupEmail],
+            [
+                'first_name'        => (string) $request->input('first_name', ''),
+                'last_name'         => (string) $request->input('last_name', ''),
+                'password'          => Hash::make(Str::random(32)),
+                'role'              => $requestedRole,
                 'email_verified_at' => now(),
             ]
         );

@@ -261,7 +261,7 @@ class CompanyController extends Controller
         'id', 'name', 'description', 'phone', 'phone_secondary', 'email',
         'address', 'city', 'postal_code', 'country',
         'gender', 'booking_mode', 'rating', 'review_count', 'price_level',
-        'profile_image_url',
+        'profile_image_url', 'min_cancel_hours',
     ];
 
     public function show(int $id): JsonResponse
@@ -280,6 +280,10 @@ class CompanyController extends Controller
                     'serviceCategories.services',
                     'members' => fn ($q) => $q->where('is_active', true),
                     'members.user',
+                    // Load which services each employee can perform — used by
+                    // the share-with-preselected-employee flow to filter the
+                    // visible service list on the recipient's salon page.
+                    'members.services',
                 ])
                 ->find($id);
 
@@ -1257,6 +1261,7 @@ class CompanyController extends Controller
      *
      * Contract: { dateTime, serviceId, available, remaining, max }
      *   - remaining = max_concurrent − count(bookings pending/confirmed/rejected for service+slot)
+     *     (cancelled / no_show release capacity — the visit never happened)
      *   - capacity override for date → max = min(service.max_concurrent, override.capacity)
      *   - break window or day_off → available:false, remaining:0
      *
@@ -1336,7 +1341,13 @@ class CompanyController extends Controller
             })
             ->get(['start_time', 'end_time']);
 
-        // --- Booked slots for this service + date (pending/confirmed/rejected) ---
+        // --- Booked slots for this service + date ---
+        // Pending / Confirmed / Rejected all hold capacity:
+        //   • pending & confirmed = the visit is scheduled
+        //   • rejected = owner refused because they're at capacity; the slot
+        //     stays blocked so no one else can book at the same time.
+        // Cancelled + no_show release capacity (the visit never took place,
+        // or was dropped by the client — slot reopens).
         $bookedRows = Appointment::where('company_id', $company->id)
             ->where('service_id', $service->id)
             ->where('date', $dateStr)
@@ -1435,10 +1446,13 @@ class CompanyController extends Controller
             ->where('is_active', true)
             ->map(fn ($member) => [
                 'id'          => (string) $member->id,
+                // userId — what the mobile app uses to match the logged-in
+                // user to an employee (share link `?employee=<userId>`).
+                'userId'      => $member->user ? (string) $member->user->id : null,
                 'name'        => $member->user
                     ? trim($member->user->first_name . ' ' . $member->user->last_name)
                     : null,
-                'photoUrl'    => $member->profile_photo,
+                'photoUrl'    => $member->user?->profile_image_url ?? $member->profile_photo,
                 'specialties' => $member->specialties ?? [],
                 'serviceIds'  => $member->services->pluck('id')->map(fn ($id) => (string) $id)->values()->all(),
                 'role'        => $member->role instanceof \BackedEnum

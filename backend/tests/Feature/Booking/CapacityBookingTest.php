@@ -105,7 +105,10 @@ class CapacityBookingTest extends TestCase
 
         $date = Carbon::today()->addDay()->format('Y-m-d');
 
-        // 1 rejected + 1 pending = fills capacity of 2
+        // 1 rejected + 1 pending = fills capacity of 2. A rejected booking
+        // reflects the owner's real capacity constraint — they refused
+        // because they can't physically serve more at that time, so the slot
+        // must stay blocked (unlike a cancellation, which frees it).
         $u1 = User::factory()->create();
         $u2 = User::factory()->create();
 

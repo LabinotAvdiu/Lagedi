@@ -33,6 +33,7 @@ class MyCompanyResource extends JsonResource
             'rating'          => (float) $this->rating,
             'reviewCount'     => (int) $this->review_count,
             'priceLevel'      => (int) $this->price_level,
+            'minCancelHours'  => (int) ($this->min_cancel_hours ?? 2),
             'latitude'        => $this->when(isset($this->latitude), fn () => (float) $this->latitude),
             'longitude'       => $this->when(isset($this->longitude), fn () => (float) $this->longitude),
 

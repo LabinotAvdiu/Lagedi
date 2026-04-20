@@ -20,6 +20,7 @@ class UpdateProfileRequest extends FormRequest
             'last_name'         => ['sometimes', 'string', 'max:100'],
             'phone'             => ['sometimes', 'nullable', 'string', 'max:20'],
             'city'              => ['sometimes', 'nullable', 'string', 'max:100'],
+            'gender'            => ['sometimes', 'nullable', 'string', 'in:men,women'],
             'profile_image_url' => ['sometimes', 'nullable', 'url', 'max:2048'],
             'locale'            => ['sometimes', 'nullable', 'string', 'in:fr,en,sq'],
         ];

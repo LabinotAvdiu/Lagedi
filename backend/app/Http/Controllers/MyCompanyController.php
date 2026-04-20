@@ -88,6 +88,68 @@ class MyCompanyController extends Controller
     }
 
     /**
+     * Resolves company access for endpoints that BOTH owners and employees
+     * should reach (like the shared planning). Returns:
+     *   - `company`       : the Company model
+     *   - `companyUserId` : the employee's pivot id, or null for owners
+     *   - `isOwner`       : true when the caller owns the company
+     *
+     * Employees see only their own bookings (filtered by companyUserId);
+     * owners see the whole company calendar. Callers that need strict
+     * owner-only access should keep using `resolveOwnedCompany()`.
+     */
+    private function resolveCompanyAccess(): array|JsonResponse
+    {
+        /** @var User $user */
+        $user = auth()->user();
+
+        // Prefer the owner pivot when the same user holds both roles on
+        // different companies (rare but possible). Owners get full access.
+        $ownerPivot = CompanyUser::where('user_id', $user->id)
+            ->where('role', CompanyRole::Owner->value)
+            ->first();
+        if ($ownerPivot) {
+            $company = Company::find($ownerPivot->company_id);
+            if (! $company) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Company not found.',
+                ], 404);
+            }
+            return [
+                'company'       => $company,
+                'companyUserId' => null,
+                'isOwner'       => true,
+            ];
+        }
+
+        // Fall back to employee pivot — scoped access only.
+        $employeePivot = CompanyUser::where('user_id', $user->id)
+            ->where('role', CompanyRole::Employee->value)
+            ->where('is_active', true)
+            ->first();
+        if ($employeePivot) {
+            $company = Company::find($employeePivot->company_id);
+            if (! $company) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Company not found.',
+                ], 404);
+            }
+            return [
+                'company'       => $company,
+                'companyUserId' => $employeePivot->id,
+                'isOwner'       => false,
+            ];
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'You are not linked to any company.',
+        ], 403);
+    }
+
+    /**
      * Verify a resource (category / service / employee) belongs to the company.
      */
     private function notFound(string $resource): JsonResponse
@@ -107,22 +169,18 @@ class MyCompanyController extends Controller
      */
     public function show(): MyCompanyResource|JsonResponse
     {
-        /** @var \App\Models\User $user */
-        $user = auth()->user();
-
-        $pivot = \App\Models\CompanyUser::where('user_id', $user->id)
-            ->where('role', CompanyRole::Owner->value)
-            ->first();
-
-        if (! $pivot) {
-            return response()->json([
-                'success' => false,
-                'message' => 'You do not own a company.',
-            ], 403);
+        // Shared by owners and employees so the planning UI (now unified)
+        // can read `bookingMode` and the salon's opening hours regardless
+        // of role. The MyCompanyResource is safe to return to an employee —
+        // it doesn't expose anything more sensitive than what they already
+        // see on the public /companies/:id page.
+        $access = $this->resolveCompanyAccess();
+        if ($access instanceof JsonResponse) {
+            return $access;
         }
 
         $company = Company::select('*', DB::raw('ST_X(location) AS longitude'), DB::raw('ST_Y(location) AS latitude'))
-            ->find($pivot->company_id);
+            ->find($access['company']->id);
 
         if (! $company) {
             return response()->json([
@@ -916,27 +974,25 @@ class MyCompanyController extends Controller
      */
     public function updateAppointmentStatus(UpdateAppointmentStatusRequest $request, int $id): JsonResponse
     {
-        $company = $this->resolveOwnedCompany();
-
-        if ($company instanceof JsonResponse) {
-            return $company;
+        // Shared by owners (full access) and employees (scoped to their
+        // own bookings). The approval flow (pending→confirmed/rejected) is
+        // only meaningful in capacity mode, but the transition matrix
+        // already limits what's reachable from a given current status —
+        // no need for an extra booking-mode gate.
+        $access = $this->resolveCompanyAccess();
+        if ($access instanceof JsonResponse) {
+            return $access;
         }
+        $company = $access['company'];
+        $employeeScopeId = $access['companyUserId']; // null for owners
+        $isOwner = $access['isOwner'];
 
-        // Only capacity_based companies use this approval flow
-        $mode = $company->booking_mode instanceof BookingMode
-            ? $company->booking_mode
-            : BookingMode::from((string) $company->booking_mode);
-
-        if ($mode !== BookingMode::CapacityBased) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Appointment approval is only available for capacity-based companies.',
-            ], 422);
+        $query = Appointment::where('id', $id)
+            ->where('company_id', $company->id);
+        if ($employeeScopeId !== null) {
+            $query->where('company_user_id', $employeeScopeId);
         }
-
-        $appointment = Appointment::where('id', $id)
-            ->where('company_id', $company->id)
-            ->first();
+        $appointment = $query->first();
 
         if (! $appointment) {
             return $this->notFound('appointment');
@@ -948,16 +1004,26 @@ class MyCompanyController extends Controller
             : AppointmentStatus::from((string) $appointment->status);
 
         // Allowed transitions:
-        //   pending   → confirmed | rejected | cancelled
-        //   confirmed → cancelled
-        // Anything else is rejected.
+        //   pending   → confirmed | rejected | cancelled   (owner only)
+        //   confirmed → cancelled | no_show
+        //   rejected  → cancelled                          (owner only)
+        // Employees can only cancel/no-show bookings assigned to them —
+        // approving or rejecting a pending request belongs to the owner.
         $allowed = match ($currentStatus) {
-            AppointmentStatus::Pending => [
-                AppointmentStatus::Confirmed,
-                AppointmentStatus::Rejected,
+            AppointmentStatus::Pending => $isOwner
+                ? [
+                    AppointmentStatus::Confirmed,
+                    AppointmentStatus::Rejected,
+                    AppointmentStatus::Cancelled,
+                ]
+                : [AppointmentStatus::Cancelled],
+            AppointmentStatus::Confirmed => [
                 AppointmentStatus::Cancelled,
+                AppointmentStatus::NoShow,
             ],
-            AppointmentStatus::Confirmed => [AppointmentStatus::Cancelled],
+            AppointmentStatus::Rejected => $isOwner
+                ? [AppointmentStatus::Cancelled]
+                : [],
             default => [],
         };
 
@@ -968,7 +1034,50 @@ class MyCompanyController extends Controller
             ], 422);
         }
 
-        $appointment->update(['status' => $newStatus]);
+        // no_show : le RDV doit avoir déjà commencé (starts_at <= now) ET
+        // être dans la fenêtre des 24h post-démarrage. Au-delà, l'owner n'a
+        // plus le droit de le marquer — on évite la gestion rétroactive et
+        // on garde l'UI du planning centrée sur les événements récents.
+        if ($newStatus === AppointmentStatus::NoShow) {
+            $startsAt = \Carbon\Carbon::parse(
+                $appointment->date->format('Y-m-d') . ' ' . $appointment->start_time
+            );
+
+            if ($startsAt->isFuture()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cannot mark a future appointment as no-show.',
+                    'errors'  => ['status' => ['appointment-not-started-yet']],
+                ], 422);
+            }
+
+            if ($startsAt->diffInHours(now()) >= 24) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No-show window has closed (> 24h).',
+                    'errors'  => ['status' => ['no-show-window-closed']],
+                ], 422);
+            }
+        }
+
+        // Compose the update payload. The motif is persisted on different
+        // columns depending on the target status so the two concepts don't
+        // get confused in the owner's history.
+        $reason = $request->validated('reason');
+        $payload = ['status' => $newStatus];
+
+        if ($newStatus === AppointmentStatus::Rejected) {
+            $payload['rejection_reason']     = $reason;
+            $payload['rejected_by_owner_at'] = now();
+        } elseif ($newStatus === AppointmentStatus::Cancelled
+            && $currentStatus !== AppointmentStatus::Rejected) {
+            // Owner-initiated cancel on pending/confirmed — keep the motif in
+            // the cancel column. For the rejected → cancelled "free slot"
+            // flow we keep the original rejection_reason untouched.
+            $payload['cancellation_reason'] = $reason;
+        }
+
+        $appointment->update($payload);
 
         $dateStr = $appointment->date instanceof \Carbon\Carbon
             ? $appointment->date->format('Y-m-d')
@@ -991,20 +1100,29 @@ class MyCompanyController extends Controller
      */
     public function storeWalkIn(StoreCompanyWalkInRequest $request): JsonResponse
     {
-        $company = $this->resolveOwnedCompany();
-
-        if ($company instanceof JsonResponse) {
-            return $company;
+        // Shared by owners and employees. Capacity owners get a company-level
+        // walk-in (company_user_id=null, bypasses capacity) — employees get
+        // one attached to themselves (company_user_id=pivot) so it appears
+        // on their personal planning.
+        $access = $this->resolveCompanyAccess();
+        if ($access instanceof JsonResponse) {
+            return $access;
         }
+        $company = $access['company'];
+        $employeeScopeId = $access['companyUserId']; // null for owners
+        $isOwner = $access['isOwner'];
 
         $mode = $company->booking_mode instanceof BookingMode
             ? $company->booking_mode
             : BookingMode::from((string) $company->booking_mode);
 
-        if ($mode !== BookingMode::CapacityBased) {
+        // Company-level walk-in (company_user_id=null) is a capacity-mode
+        // concept only. Owners in employee_based mode can't drop a generic
+        // walk-in — they'd need to go through a specific employee's flow.
+        if ($isOwner && $mode !== BookingMode::CapacityBased) {
             return response()->json([
                 'success' => false,
-                'message' => 'Walk-in only for capacity-based salons.',
+                'message' => 'Owners of employee-based salons must add walk-ins through an employee.',
             ], 403);
         }
 
@@ -1030,12 +1148,13 @@ class MyCompanyController extends Controller
         $endTime  = $end->format('H:i:s');
         $date     = $validated['date'];
 
-        $appointment = DB::transaction(function () use ($company, $service, $date, $startTime, $endTime, $validated): Appointment {
-            // Owner-created walk-ins bypass capacity limits — the owner is the
-            // source of truth for their own schedule and may overbook on purpose.
+        $appointment = DB::transaction(function () use ($company, $service, $date, $startTime, $endTime, $validated, $employeeScopeId): Appointment {
+            // Owner-created walk-ins (capacity mode only, guarded above) bypass
+            // capacity limits. Employee walk-ins are pinned to that employee's
+            // pivot so they show up on their own schedule.
             return Appointment::create([
                 'company_id'         => $company->id,
-                'company_user_id'    => null,
+                'company_user_id'    => $employeeScopeId, // null for capacity owner
                 'service_id'         => $service->id,
                 'user_id'            => null,
                 'date'               => $date,
@@ -1068,11 +1187,15 @@ class MyCompanyController extends Controller
      */
     public function listAppointments(Request $request): AnonymousResourceCollection|JsonResponse
     {
-        $company = $this->resolveOwnedCompany();
-
-        if ($company instanceof JsonResponse) {
-            return $company;
+        // Accept both owners and employees. Owners see the full company
+        // calendar; employees see only their own bookings (scoped by their
+        // company_user pivot id). This way the planning UI is shared.
+        $access = $this->resolveCompanyAccess();
+        if ($access instanceof JsonResponse) {
+            return $access;
         }
+        $company = $access['company'];
+        $employeeScopeId = $access['companyUserId']; // null for owners
 
         // --- Validate query params -----------------------------------------------
 
@@ -1127,10 +1250,16 @@ class MyCompanyController extends Controller
 
             $statuses = $requestedStatuses;
         } else {
-            // Default: show slots that are booked or awaiting approval
+            // Default for the owner planning view: show every status except
+            // `rejected`. No-show and cancelled must stay visible so the owner
+            // gets a faithful picture of the day (otherwise the timeline
+            // appears empty right after marking someone as no-show). Rejected
+            // pendings never happened, so they stay out by default.
             $statuses = [
                 AppointmentStatus::Confirmed->value,
                 AppointmentStatus::Pending->value,
+                AppointmentStatus::NoShow->value,
+                AppointmentStatus::Cancelled->value,
             ];
         }
 
@@ -1139,6 +1268,11 @@ class MyCompanyController extends Controller
         $query = Appointment::where('company_id', $company->id)
             ->whereIn('status', $statuses)
             ->with(['service', 'companyUser.user', 'user']);
+
+        // Employee scope — only their own appointments.
+        if ($employeeScopeId !== null) {
+            $query->where('company_user_id', $employeeScopeId);
+        }
 
         if ($hasDate) {
             $query->where('date', $validated['date'])
@@ -1149,7 +1283,10 @@ class MyCompanyController extends Controller
                   ->orderBy('start_time');
         }
 
-        return OwnerAppointmentResource::collection($query->get());
+        $appointments = $query->get();
+
+        return OwnerAppointmentResource::collection($appointments)
+            ->additional(['noShowCounts' => $this->batchNoShowCounts($appointments)]);
     }
 
     /**
@@ -1172,6 +1309,35 @@ class MyCompanyController extends Controller
             ->orderBy('start_time')
             ->get();
 
-        return OwnerAppointmentResource::collection($appointments);
+        return OwnerAppointmentResource::collection($appointments)
+            ->additional(['noShowCounts' => $this->batchNoShowCounts($appointments)]);
+    }
+
+    /**
+     * Calcule en une seule requête le nombre de no-show par user_id.
+     * Retourne un tableau [user_id => count].
+     *
+     * @param  \Illuminate\Support\Collection $appointments
+     * @return array<int, int>
+     */
+    private function batchNoShowCounts(\Illuminate\Support\Collection $appointments): array
+    {
+        $userIds = $appointments
+            ->whereNotNull('user_id')
+            ->pluck('user_id')
+            ->unique()
+            ->values()
+            ->all();
+
+        if (empty($userIds)) {
+            return [];
+        }
+
+        return Appointment::whereIn('user_id', $userIds)
+            ->where('status', AppointmentStatus::NoShow->value)
+            ->selectRaw('user_id, COUNT(*) as cnt')
+            ->groupBy('user_id')
+            ->pluck('cnt', 'user_id')
+            ->all();
     }
 }

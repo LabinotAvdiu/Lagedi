@@ -35,4 +35,17 @@ return [
         ],
     ],
 
+    // Google Sign In — comma-separated list of OAuth client IDs that are
+    // authorised to issue tokens for this backend (web + android + iOS).
+    // Leave empty to skip the aud check (dev only — enable in production).
+    'google' => [
+        'allowed_client_ids' => env('GOOGLE_ALLOWED_CLIENT_IDS'),
+    ],
+
+    // Apple Sign In — client_id is the Bundle ID (iOS app) or Service ID (web).
+    // Leave null to skip the aud check (dev only — enable in production).
+    'apple' => [
+        'client_id' => env('APPLE_CLIENT_ID'),
+    ],
+
 ];

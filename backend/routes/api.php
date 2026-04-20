@@ -2,14 +2,18 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\AppointmentCancelController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\FavoriteController;
 use App\Http\Controllers\MyCompanyController;
 use App\Http\Controllers\MyCompanyGalleryController;
+use App\Http\Controllers\MyCompanyReviewController;
 use App\Http\Controllers\MyScheduleController;
 use App\Http\Controllers\NotificationPreferenceController;
+use App\Http\Controllers\ReviewController;
+use App\Http\Controllers\UserAvatarController;
 use App\Http\Controllers\UserDeviceController;
 use Illuminate\Support\Facades\Route;
 
@@ -35,6 +39,7 @@ Route::prefix('auth')->group(function () {
     // Social OAuth (stubs — implement server-side verification)
     Route::post('/google',   [AuthController::class, 'googleLogin']);
     Route::post('/facebook', [AuthController::class, 'facebookLogin']);
+    Route::post('/apple',    [AuthController::class, 'appleLogin']);
 
     // Password reset flow
     Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:3,1');
@@ -46,10 +51,12 @@ Route::prefix('auth')->group(function () {
 
     // Protected auth routes (require valid Sanctum token)
     Route::middleware('auth:sanctum')->group(function () {
-        Route::post('/logout',           [AuthController::class, 'logout']);
-        Route::get('/profile',           [AuthController::class, 'profile']);
-        Route::put('/profile',           [AuthController::class, 'updateProfile']);
-        Route::put('/change-password',   [AuthController::class, 'changePassword']);
+        Route::post('/logout',            [AuthController::class, 'logout']);
+        Route::get('/profile',            [AuthController::class, 'profile']);
+        Route::put('/profile',            [AuthController::class, 'updateProfile']);
+        Route::put('/change-password',    [AuthController::class, 'changePassword']);
+        // Social sign-up completion for company accounts.
+        Route::post('/complete-company',  [AuthController::class, 'completeCompanySignup']);
     });
 });
 
@@ -87,6 +94,23 @@ Route::middleware('auth:sanctum')->group(function () {
 
 /*
 |--------------------------------------------------------------------------
+| Appointment routes  — /api/appointments/*
+|--------------------------------------------------------------------------
+*/
+Route::middleware('auth:sanctum')->group(function () {
+    // Feature 1 — Annulation client
+    Route::post('/appointments/{id}/cancel', AppointmentCancelController::class);
+
+    // Feature 3 — Avis post-RDV (client)
+    Route::post('/appointments/{id}/review', [ReviewController::class, 'store']);
+    Route::get('/appointments/{id}/review',  [ReviewController::class, 'show']);
+});
+
+// Feature 3 — Avis publics par salon
+Route::get('/companies/{id}/reviews', [ReviewController::class, 'indexByCompany']);
+
+/*
+|--------------------------------------------------------------------------
 | Employee — "My Schedule" routes  — /api/my-schedule/*
 |--------------------------------------------------------------------------
 */
@@ -94,6 +118,12 @@ Route::middleware('auth:sanctum')->prefix('my-schedule')->group(function () {
     Route::get('/',          [MyScheduleController::class, 'show']);
     Route::post('/walk-in',  [MyScheduleController::class, 'storeWalkIn']);
     Route::get('/upcoming',  [MyScheduleController::class, 'upcoming']);
+
+    // Employee-scoped appointment mutation — cancel / no-show on the
+    // employee's own bookings (mirrors the owner's /my-company/... endpoint
+    // but guarded by company_user_id ownership).
+    Route::put('/appointments/{id}/status',
+        [MyScheduleController::class, 'updateMyAppointmentStatus']);
 
     // Work schedule settings
     Route::get('/settings',              [MyScheduleController::class, 'settings']);
@@ -122,7 +152,9 @@ Route::middleware('auth:sanctum')->prefix('me')->group(function () {
     Route::get('/notification-preferences',  [NotificationPreferenceController::class, 'show']);
     Route::put('/notification-preferences',  [NotificationPreferenceController::class, 'update']);
     Route::post('/devices',                  [UserDeviceController::class, 'store']);
-    Route::delete('/devices',               [UserDeviceController::class, 'destroy']);
+    Route::delete('/devices',                [UserDeviceController::class, 'destroy']);
+    Route::post('/avatar',                   [UserAvatarController::class, 'store']);
+    Route::delete('/avatar',                 [UserAvatarController::class, 'destroy']);
 });
 
 /*
@@ -186,4 +218,9 @@ Route::middleware('auth:sanctum')->prefix('my-company')->group(function () {
     Route::post('/gallery',             [MyCompanyGalleryController::class, 'store']);
     Route::post('/gallery/reorder',     [MyCompanyGalleryController::class, 'reorder']);
     Route::delete('/gallery/{id}',      [MyCompanyGalleryController::class, 'destroy']);
+
+    // Feature 3 — Reviews (owner)
+    Route::get('/reviews',              [MyCompanyReviewController::class, 'index']);
+    Route::put('/reviews/{id}/hide',    [MyCompanyReviewController::class, 'hide']);
+    Route::put('/reviews/{id}/unhide',  [MyCompanyReviewController::class, 'unhide']);
 });

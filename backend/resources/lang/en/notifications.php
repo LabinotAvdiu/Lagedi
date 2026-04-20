@@ -26,4 +26,12 @@ return [
     // Client 2h reminder
     'appointment_reminder_2h_title' => 'Reminder — in 2 hours',
     'appointment_reminder_2h_body'  => 'Your appointment starts in 2 hours at :time.',
+
+    // Cancellation by client (recipient: owner/employee)
+    'appointment_cancelled_by_client_title' => 'Booking cancelled',
+    'appointment_cancelled_by_client_body'  => ':client_name cancelled their :service_name appointment at :time.',
+
+    // Cancellation by salon (recipient: client)
+    'appointment_cancelled_by_owner_title' => 'Appointment cancelled',
+    'appointment_cancelled_by_owner_body'  => ':company_name cancelled your :service_name appointment at :time.',
 ];
