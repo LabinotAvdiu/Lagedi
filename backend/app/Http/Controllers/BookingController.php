@@ -105,13 +105,16 @@ class BookingController extends Controller
                     return ['error' => 'day_off'];
                 }
 
-                // Check company breaks — block if slot start falls in break window
+                // Check company breaks — block if [startTime, endTime) overlaps
+                // the break window. Start-inside-break was buggy: it let a
+                // 11:45 slot with a 30-min service slip past a 12:00-13:00
+                // break because only the slot start (11:45) was checked.
                 $onBreak = CompanyBreak::where('company_id', $companyId)
                     ->where(function ($q) use ($slotEnumDow) {
                         $q->whereNull('day_of_week')
                           ->orWhere('day_of_week', $slotEnumDow);
                     })
-                    ->where('start_time', '<=', $startTime)
+                    ->where('start_time', '<', $endTime)
                     ->where('end_time', '>', $startTime)
                     ->exists();
 
@@ -214,12 +217,13 @@ class BookingController extends Controller
                     return ['error' => 'conflict'];
                 }
 
+                // Overlap check: [startTime, endTime) vs break window
                 $onBreak = EmployeeBreak::where('company_user_id', $companyUserId)
                     ->where(function ($q) use ($slotEnumDow) {
                         $q->whereNull('day_of_week')
                           ->orWhere('day_of_week', $slotEnumDow);
                     })
-                    ->where('start_time', '<=', $startTime)
+                    ->where('start_time', '<', $endTime)
                     ->where('end_time', '>', $startTime)
                     ->exists();
 
@@ -335,13 +339,13 @@ class BookingController extends Controller
             ->unique()
             ->all();
 
-        // Employees whose break covers the slot start time on this day
+        // Employees whose break overlaps [startTime, endTime) on this day
         $onBreakIds = EmployeeBreak::whereIn('company_user_id', $candidateIds)
             ->where(function ($q) use ($slotEnumDow) {
                 $q->whereNull('day_of_week')
                   ->orWhere('day_of_week', $slotEnumDow);
             })
-            ->where('start_time', '<=', $startTime)
+            ->where('start_time', '<', $endTime)
             ->where('end_time', '>', $startTime)
             ->pluck('company_user_id')
             ->unique()
