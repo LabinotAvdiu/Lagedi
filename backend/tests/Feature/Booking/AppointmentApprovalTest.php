@@ -125,18 +125,22 @@ class AppointmentApprovalTest extends TestCase
         ])->assertStatus(422);
     }
 
-    public function testType1AppointmentCannotBeApproved(): void
+    public function testOwnerCanApproveInEmployeeBasedMode(): void
     {
+        // The approval flow is now unified — owners can confirm/reject
+        // pending bookings regardless of the company's booking mode. The
+        // transition matrix (pending → confirmed|rejected|cancelled) is the
+        // single source of truth for what's reachable.
         Sanctum::actingAs($this->owner);
-
-        // Switch company to employee_based
         $this->company->update(['booking_mode' => BookingMode::EmployeeBased->value]);
 
         $appointment = $this->createPendingAppointment();
 
         $this->putJson("/api/my-company/appointments/{$appointment->id}/status", [
             'status' => 'confirmed',
-        ])->assertStatus(422);
+        ])->assertStatus(200);
+
+        $this->assertEquals('confirmed', $appointment->fresh()->status->value);
     }
 
     public function testOwnerCanListPendingAppointments(): void

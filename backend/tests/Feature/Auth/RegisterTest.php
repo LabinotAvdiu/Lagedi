@@ -48,10 +48,11 @@ class RegisterTest extends TestCase
         Notification::fake();
 
         $response = $this->postJson('/api/auth/register', $this->validPayload([
-            'role'         => 'company',
-            'company_name' => 'Salon Élégance',
-            'address'      => '39 Rue de la Bourse',
-            'city'         => 'Paris',
+            'role'           => 'company',
+            'company_name'   => 'Salon Élégance',
+            'company_gender' => 'both',
+            'address'        => '39 Rue de la Bourse',
+            'city'           => 'Paris',
         ]));
 
         $response->assertStatus(201);

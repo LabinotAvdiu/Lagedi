@@ -13,6 +13,7 @@ use App\Http\Controllers\MyCompanyReviewController;
 use App\Http\Controllers\MyScheduleController;
 use App\Http\Controllers\NotificationPreferenceController;
 use App\Http\Controllers\ReviewController;
+use App\Http\Controllers\SupportTicketController;
 use App\Http\Controllers\UserAvatarController;
 use App\Http\Controllers\UserDeviceController;
 use Illuminate\Support\Facades\Route;
@@ -193,13 +194,17 @@ Route::middleware('auth:sanctum')->prefix('my-company')->group(function () {
     // Booking settings (Type 2)
     Route::put('/booking-settings', [MyCompanyController::class, 'updateBookingSettings']);
 
-    // Company breaks (Type 2)
-    Route::get('/breaks',        [MyCompanyController::class, 'listBreaks']);
-    Route::post('/breaks',       [MyCompanyController::class, 'storeBreak']);
-    Route::put('/breaks/{id}',   [MyCompanyController::class, 'updateBreak']);
+    // Company breaks + days off (capacity mode — "Mon salon" settings)
+    Route::get('/breaks',         [MyCompanyController::class, 'listBreaks']);
+    Route::post('/breaks',        [MyCompanyController::class, 'storeBreak']);
+    Route::put('/breaks/{id}',    [MyCompanyController::class, 'updateBreak']);
     Route::delete('/breaks/{id}', [MyCompanyController::class, 'destroyBreak']);
+    Route::get('/days-off',        [MyCompanyController::class, 'listDaysOff']);
+    Route::post('/days-off',       [MyCompanyController::class, 'storeDayOff']);
+    Route::delete('/days-off/{id}', [MyCompanyController::class, 'destroyDayOff']);
 
-    // Capacity overrides (Type 2)
+    // Capacity overrides (Type 2) — DEPRECATED, routes kept for now for
+    // back-compat but the feature is being removed from the UI.
     Route::get('/capacity-overrides',        [MyCompanyController::class, 'listCapacityOverrides']);
     Route::post('/capacity-overrides',       [MyCompanyController::class, 'storeCapacityOverride']);
     Route::put('/capacity-overrides/{id}',   [MyCompanyController::class, 'updateCapacityOverride']);
@@ -211,6 +216,8 @@ Route::middleware('auth:sanctum')->prefix('my-company')->group(function () {
     // Appointment routes (Type 2) — specific routes before /{id} to avoid collision
     Route::get('/appointments',                  [MyCompanyController::class, 'listAppointments']);
     Route::get('/appointments/pending',          [MyCompanyController::class, 'pendingAppointments']);
+    Route::get('/planning-settings',             [MyCompanyController::class, 'planningSettings']);
+    Route::get('/planning-overlays',             [MyCompanyController::class, 'planningOverlays']);
     Route::put('/appointments/{id}/status',      [MyCompanyController::class, 'updateAppointmentStatus']);
 
     // Gallery — reorder must come before /{id} to avoid route collision
@@ -224,3 +231,14 @@ Route::middleware('auth:sanctum')->prefix('my-company')->group(function () {
     Route::put('/reviews/{id}/hide',    [MyCompanyReviewController::class, 'hide']);
     Route::put('/reviews/{id}/unhide',  [MyCompanyReviewController::class, 'unhide']);
 });
+
+/*
+|--------------------------------------------------------------------------
+| Support  — /api/support-tickets
+|--------------------------------------------------------------------------
+| Public endpoint: accessible to guests and authenticated users.
+| Rate-limited to 3 tickets per minute per IP to deter abuse.
+*/
+Route::post('/support-tickets', [SupportTicketController::class, 'store'])
+    ->middleware('throttle:3,1');
+

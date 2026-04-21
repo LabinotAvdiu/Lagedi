@@ -37,8 +37,11 @@ use App\Models\Company;
 use Carbon\Carbon;
 use App\Models\CompanyBreak;
 use App\Models\CompanyCapacityOverride;
+use App\Models\CompanyDayOff;
 use App\Models\CompanyOpeningHour;
 use App\Models\CompanyUser;
+use App\Models\EmployeeBreak;
+use App\Models\EmployeeDayOff;
 use App\Models\Service;
 use App\Models\ServiceCategory;
 use App\Models\User;
@@ -779,8 +782,32 @@ class MyCompanyController extends Controller
             return $company;
         }
 
+        $validated = $request->validated();
+        $force     = (bool) ($request->input('force', false));
+
+        // Conflict check — refuse if future appointments start during the
+        // window unless the caller explicitly confirmed to force. Applies
+        // company-wide (companyUserId null) in capacity mode.
+        if (! $force) {
+            $conflicts = \App\Support\ScheduleConflictChecker::appointmentsInBreakWindow(
+                companyId: (int) $company->id,
+                companyUserId: null,
+                dayOfWeek: isset($validated['day_of_week']) ? (int) $validated['day_of_week'] : null,
+                breakStart: (string) $validated['start_time'],
+                breakEnd: (string) $validated['end_time'],
+            );
+            if ($conflicts->isNotEmpty()) {
+                return response()->json([
+                    'success'   => false,
+                    'code'      => 'break_conflict',
+                    'message'   => 'Appointments start during this break window.',
+                    'conflicts' => \App\Support\ScheduleConflictChecker::toConflictPayload($conflicts),
+                ], 409);
+            }
+        }
+
         $break = CompanyBreak::create(array_merge(
-            $request->validated(),
+            $validated,
             ['company_id' => $company->id]
         ));
 
@@ -844,6 +871,143 @@ class MyCompanyController extends Controller
         Cache::forget("company:detail:{$company->id}");
 
         return response()->json(['success' => true, 'message' => 'Break deleted.']);
+    }
+
+    // =========================================================================
+    // Company Days Off (capacity mode — salon closed for whole days)
+    // =========================================================================
+
+    /**
+     * GET /api/my-company/days-off
+     *
+     * Returns the upcoming + recent company-wide closures. Used by the "Mon
+     * salon" settings to list and delete entries.
+     */
+    public function listDaysOff(): JsonResponse
+    {
+        $company = $this->resolveOwnedCompany();
+        if ($company instanceof JsonResponse) {
+            return $company;
+        }
+
+        $rows = CompanyDayOff::where('company_id', $company->id)
+            ->orderBy('date')
+            ->get(['id', 'date', 'reason']);
+
+        $data = $rows->map(fn ($d) => [
+            'id'     => (string) $d->id,
+            'date'   => $d->date instanceof Carbon
+                ? $d->date->toDateString()
+                : substr((string) $d->date, 0, 10),
+            'reason' => $d->reason,
+        ])->all();
+
+        return response()->json(['success' => true, 'data' => $data]);
+    }
+
+    /**
+     * POST /api/my-company/days-off
+     *
+     * Supports a single date or a range via `until_date`. Refuses with 409
+     * and a `conflicts` payload if live appointments exist on any day of
+     * the range — the owner must cancel them first.
+     */
+    public function storeDayOff(Request $request): JsonResponse
+    {
+        $company = $this->resolveOwnedCompany();
+        if ($company instanceof JsonResponse) {
+            return $company;
+        }
+
+        $validated = validator($request->all(), [
+            'date'       => ['required', 'date_format:Y-m-d'],
+            'until_date' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:date'],
+            'reason'     => ['nullable', 'string', 'max:255'],
+        ])->validate();
+
+        $startDate = $validated['date'];
+        $endDate   = $validated['until_date'] ?? $startDate;
+
+        $conflicts = \App\Support\ScheduleConflictChecker::appointmentsInDateRange(
+            companyId: (int) $company->id,
+            companyUserId: null,
+            startDate: $startDate,
+            endDate: $endDate,
+        );
+        if ($conflicts->isNotEmpty()) {
+            return response()->json([
+                'success'   => false,
+                'code'      => 'day_off_conflict',
+                'message'   => 'Appointments exist on these dates. Cancel or refuse them before adding the day off.',
+                'conflicts' => \App\Support\ScheduleConflictChecker::toConflictPayload($conflicts),
+            ], 409);
+        }
+
+        $existing = CompanyDayOff::where('company_id', $company->id)
+            ->whereBetween('date', [$startDate, $endDate])
+            ->pluck('date')
+            ->map(fn ($d) => $d instanceof Carbon
+                ? $d->toDateString()
+                : substr((string) $d, 0, 10))
+            ->all();
+        $existingSet = array_flip($existing);
+
+        $created = [];
+        $cursor  = Carbon::createFromFormat('Y-m-d', $startDate);
+        $end     = Carbon::createFromFormat('Y-m-d', $endDate);
+        while ($cursor->lte($end)) {
+            $dateStr = $cursor->format('Y-m-d');
+            if (! isset($existingSet[$dateStr])) {
+                $row = CompanyDayOff::create([
+                    'company_id' => $company->id,
+                    'date'       => $dateStr,
+                    'reason'     => $validated['reason'] ?? null,
+                ]);
+                $created[] = [
+                    'id'     => (string) $row->id,
+                    'date'   => $row->date instanceof Carbon
+                        ? $row->date->toDateString()
+                        : substr((string) $row->date, 0, 10),
+                    'reason' => $row->reason,
+                ];
+            }
+            $cursor->addDay();
+        }
+
+        if (empty($created)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'All days in this range are already marked as off.',
+            ], 409);
+        }
+
+        Cache::forget("company:detail:{$company->id}");
+
+        return response()->json(['success' => true, 'data' => $created], 201);
+    }
+
+    /**
+     * DELETE /api/my-company/days-off/{id}
+     */
+    public function destroyDayOff(int $id): JsonResponse
+    {
+        $company = $this->resolveOwnedCompany();
+        if ($company instanceof JsonResponse) {
+            return $company;
+        }
+
+        $row = CompanyDayOff::where('id', $id)
+            ->where('company_id', $company->id)
+            ->first();
+
+        if (! $row) {
+            return $this->notFound('day off');
+        }
+
+        $row->delete();
+        Cache::forget("company:detail:{$company->id}");
+
+        return response()->json(['success' => true, 'message' => 'Day off deleted.']);
     }
 
     // =========================================================================
@@ -1100,29 +1264,42 @@ class MyCompanyController extends Controller
      */
     public function storeWalkIn(StoreCompanyWalkInRequest $request): JsonResponse
     {
-        // Shared by owners and employees. Capacity owners get a company-level
-        // walk-in (company_user_id=null, bypasses capacity) — employees get
-        // one attached to themselves (company_user_id=pivot) so it appears
-        // on their personal planning.
+        // Shared by owners and employees. Scoping of the walk-in depends on
+        // company mode and who's calling :
+        //   - Capacity mode              → company_user_id = null (no per-pro
+        //                                   attribution ; capacity handles it)
+        //   - Employee-based + employee  → pinned to caller's pivot
+        //   - Employee-based + owner-pro → pinned to caller's pivot too
+        //     (the owner of a solo/small salon IS a pro, they need to walk-in
+        //     on their own planning — see docs/PLANNING_CONTRACT.md §7)
         $access = $this->resolveCompanyAccess();
         if ($access instanceof JsonResponse) {
             return $access;
         }
         $company = $access['company'];
-        $employeeScopeId = $access['companyUserId']; // null for owners
-        $isOwner = $access['isOwner'];
 
         $mode = $company->booking_mode instanceof BookingMode
             ? $company->booking_mode
             : BookingMode::from((string) $company->booking_mode);
 
-        // Company-level walk-in (company_user_id=null) is a capacity-mode
-        // concept only. Owners in employee_based mode can't drop a generic
-        // walk-in — they'd need to go through a specific employee's flow.
-        if ($isOwner && $mode !== BookingMode::CapacityBased) {
+        // Resolve the caller's pivot id — employees already have it via
+        // resolveCompanyAccess, owners need a lookup (they're null-scoped).
+        $callerPivotId = $access['companyUserId']
+            ?? CompanyUser::where('user_id', auth()->id())
+                ->where('company_id', $company->id)
+                ->where('is_active', true)
+                ->value('id');
+
+        // Capacity mode intentionally strips the pivot — the walk-in lives on
+        // the company, not a specific pro. Employee-based always pins it.
+        $employeeScopeId = $mode === BookingMode::CapacityBased
+            ? null
+            : $callerPivotId;
+
+        if ($mode !== BookingMode::CapacityBased && $employeeScopeId === null) {
             return response()->json([
                 'success' => false,
-                'message' => 'Owners of employee-based salons must add walk-ins through an employee.',
+                'message' => 'Cannot resolve your employee pivot — contact support.',
             ], 403);
         }
 
@@ -1171,6 +1348,12 @@ class MyCompanyController extends Controller
         Cache::forget("company:availability:{$company->id}:{$date}");
 
         $appointment->load(['service', 'companyUser.user', 'user']);
+
+        // Inject viewer context so the returned resource carries correct
+        // can.* flags — otherwise the front would see cancel=false on the
+        // fresh walk-in until the next full list refresh.
+        $request->attributes->set('viewerRole', $access['isOwner'] ? 'owner' : 'employee');
+        $request->attributes->set('bookingMode', $mode->value);
 
         return (new OwnerAppointmentResource($appointment))
             ->response()
@@ -1285,8 +1468,208 @@ class MyCompanyController extends Controller
 
         $appointments = $query->get();
 
+        $mode = $company->booking_mode instanceof BookingMode
+            ? $company->booking_mode->value
+            : (string) ($company->booking_mode ?? 'employee_based');
+
+        // Inject viewer context so each item can compute its capabilities.
+        // Request attributes propagate to every resource rendered in this call.
+        $request->attributes->set('viewerRole', $access['isOwner'] ? 'owner' : 'employee');
+        $request->attributes->set('bookingMode', $mode);
+
         return OwnerAppointmentResource::collection($appointments)
             ->additional(['noShowCounts' => $this->batchNoShowCounts($appointments)]);
+    }
+
+    /**
+     * GET /api/my-company/planning-settings
+     *
+     * Returns the UI-driving flags for the shared planning screen. The frontend
+     * renders sections/buttons strictly from these flags — no bookingMode or
+     * role checks live on the client. See docs/PLANNING_CONTRACT.md.
+     *
+     *   - showPendingApprovalsPanel : desktop approval panel (capacity owners)
+     *   - showNextAppointmentBanner : "next RDV" banner (individual mode only)
+     *   - showAllStatuses           : include cancelled/rejected/no_show in the timeline
+     *   - allowOverlappingWalkIns   : "+" buttons next to occupied slots (capacity)
+     *   - visibleStatuses           : explicit allow-list — the front filters on this
+     */
+    public function planningSettings(): JsonResponse
+    {
+        $access = $this->resolveCompanyAccess();
+        if ($access instanceof JsonResponse) {
+            return $access;
+        }
+
+        $company = $access['company'];
+        $isOwner = $access['isOwner'];
+        $mode    = $company->booking_mode instanceof BookingMode
+            ? $company->booking_mode
+            : BookingMode::from((string) ($company->booking_mode ?? 'employee_based'));
+
+        $isCapacity = $mode === BookingMode::CapacityBased;
+
+        // Capacity mode shows the full spectrum of statuses (including cancelled
+        // / no-show) because the owner needs audit context. Individual mode
+        // keeps the timeline focused on active bookings — a cancelled slot is
+        // instantly free, the card adds only noise.
+        $visibleStatuses = $isCapacity
+            ? [
+                AppointmentStatus::Pending->value,
+                AppointmentStatus::Confirmed->value,
+                AppointmentStatus::Rejected->value,
+                AppointmentStatus::Cancelled->value,
+                AppointmentStatus::NoShow->value,
+                AppointmentStatus::Completed->value,
+            ]
+            : [
+                AppointmentStatus::Confirmed->value,
+                AppointmentStatus::NoShow->value, // kept so no-show badges still appear
+            ];
+
+        return response()->json([
+            'success' => true,
+            'data'    => [
+                'showPendingApprovalsPanel' => $isOwner && $isCapacity,
+                'showNextAppointmentBanner' => ! $isCapacity,
+                'showAllStatuses'           => $isCapacity,
+                'allowOverlappingWalkIns'   => $isCapacity,
+                'visibleStatuses'           => $visibleStatuses,
+            ],
+        ]);
+    }
+
+    /**
+     * GET /api/my-company/planning-overlays?start=YYYY-MM-DD&end=YYYY-MM-DD
+     *
+     * Returns the non-appointment overlays for the shared planning view:
+     *   - `breaks`  : recurring/one-off break windows relevant to the caller
+     *   - `daysOff` : concrete dates within [start, end] to mark as day-off
+     *
+     * Scoping rules (mirror listAppointments):
+     *   - Employee          → their own breaks + days off
+     *   - Owner (capacity)  → company-wide breaks + company days off
+     *   - Owner (emp-based) → company days off only (per-employee breaks
+     *                         are not overlayed on the aggregated owner view —
+     *                         owners can check each employee's schedule page)
+     */
+    public function planningOverlays(Request $request): JsonResponse
+    {
+        $access = $this->resolveCompanyAccess();
+        if ($access instanceof JsonResponse) {
+            return $access;
+        }
+        $company = $access['company'];
+
+        $validated = validator($request->query(), [
+            'start' => ['required', 'date_format:Y-m-d'],
+            'end'   => ['required', 'date_format:Y-m-d', 'after_or_equal:start'],
+        ])->validate();
+
+        $start = Carbon::createFromFormat('Y-m-d', $validated['start']);
+        $end   = Carbon::createFromFormat('Y-m-d', $validated['end']);
+
+        if ($start->diffInDays($end) > 42) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Date range cannot exceed 42 days.',
+            ], 422);
+        }
+
+        $mode = $company->booking_mode instanceof BookingMode
+            ? $company->booking_mode
+            : BookingMode::from((string) ($company->booking_mode ?? 'employee_based'));
+
+        $breaks  = [];
+        $daysOff = [];
+
+        // Resolve the caller's pivot id. In employee_based mode the owner is
+        // often also a pro and has personal breaks/days off stored against
+        // their pivot in `employee_breaks` / `employee_days_off`. We always
+        // look them up — an owner with no personal schedule just gets nothing.
+        $callerPivotId = CompanyUser::where('user_id', auth()->id())
+            ->where('company_id', $company->id)
+            ->where('is_active', true)
+            ->value('id');
+
+        // Source 1 — the caller's personal schedule (pivot-scoped).
+        // Applies in every mode ; for capacity owners the pivot typically
+        // carries nothing, but there's no reason to block the query.
+        if ($callerPivotId !== null) {
+            $empBreaks = EmployeeBreak::where('company_user_id', $callerPivotId)
+                ->get(['id', 'day_of_week', 'start_time', 'end_time', 'label']);
+
+            foreach ($empBreaks as $b) {
+                $rawDow = $b->getRawOriginal('day_of_week');
+                $breaks[] = [
+                    'id'        => (string) $b->id,
+                    'dayOfWeek' => $rawDow !== null ? (int) $rawDow : null,
+                    'startTime' => substr((string) $b->start_time, 0, 5),
+                    'endTime'   => substr((string) $b->end_time, 0, 5),
+                    'label'     => $b->label,
+                ];
+            }
+
+            $empDaysOff = EmployeeDayOff::where('company_user_id', $callerPivotId)
+                ->whereBetween('date', [$start->format('Y-m-d'), $end->format('Y-m-d')])
+                ->get(['id', 'date', 'reason']);
+
+            foreach ($empDaysOff as $d) {
+                $dateStr = $d->date instanceof Carbon
+                    ? $d->date->toDateString()
+                    : substr((string) $d->date, 0, 10);
+                $daysOff[] = [
+                    'id'     => (string) $d->id,
+                    'date'   => $dateStr,
+                    'reason' => $d->reason,
+                ];
+            }
+        }
+
+        // Source 2 — company-level overlays. Capacity mode always shows them
+        // (the "salon is on break" notion). Individual-mode owners also get
+        // the company days off so a public holiday closes everyone's planning.
+        if ($mode === BookingMode::CapacityBased) {
+            $coBreaks = CompanyBreak::where('company_id', $company->id)
+                ->get(['id', 'day_of_week', 'start_time', 'end_time', 'label']);
+
+            foreach ($coBreaks as $b) {
+                $rawDow = $b->getRawOriginal('day_of_week');
+                $breaks[] = [
+                    'id'        => (string) $b->id,
+                    'dayOfWeek' => $rawDow !== null ? (int) $rawDow : null,
+                    'startTime' => substr((string) $b->start_time, 0, 5),
+                    'endTime'   => substr((string) $b->end_time, 0, 5),
+                    'label'     => $b->label,
+                ];
+            }
+        }
+
+        // Company days off — applies to everyone regardless of mode/role.
+        {
+            $coDaysOff = CompanyDayOff::where('company_id', $company->id)
+                ->whereBetween('date', [$start->format('Y-m-d'), $end->format('Y-m-d')])
+                ->get(['id', 'date', 'reason']);
+
+            foreach ($coDaysOff as $d) {
+                $dateStr = $d->date instanceof Carbon
+                    ? $d->date->toDateString()
+                    : substr((string) $d->date, 0, 10);
+                $daysOff[] = [
+                    'id'     => (string) $d->id,
+                    'date'   => $dateStr,
+                    'reason' => $d->reason,
+                ];
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'data'    => [
+                'breaks'  => $breaks,
+                'daysOff' => $daysOff,
+            ],
+        ]);
     }
 
     /**

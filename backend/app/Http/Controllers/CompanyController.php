@@ -800,9 +800,12 @@ class CompanyController extends Controller
             }
 
             // Breaks are already filtered to this day-of-week before the loop.
+            // Overlap check: [slotStart, slotEnd) vs [brkStart, brkEnd). The
+            // former "slot-start-inside-break" check would let a 30-min
+            // service at 11:45 slip past a 12:00-13:00 break.
             $breaks = $breaksByDowEmployee[$empId][$enumDow] ?? [];
             foreach ($breaks as $brk) {
-                if ($brk['start'] <= $slotStartMin && $slotStartMin < $brk['end']) {
+                if ($brk['start'] < $slotEndMin && $brk['end'] > $slotStartMin) {
                     return true;
                 }
             }
@@ -1156,13 +1159,15 @@ class CompanyController extends Controller
                 }
             }
 
-            // Break overlap
+            // Break overlap — use full [slotStart, slotEnd) vs [brkStart, brkEnd).
+            // Start-inside-break was buggy: a 30-min service at 11:45 would
+            // pass a 12:00-13:00 break (slot runs 11:45-12:15, entering break).
             $breaks = $breaksByEmployee[$empId] ?? [];
             foreach ($breaks as $brk) {
                 if ($brk['day_of_week'] !== null && $brk['day_of_week'] !== $enumDow) {
                     continue;
                 }
-                if ($brk['start'] <= $slotStartTime && $slotStartTime < $brk['end']) {
+                if ($brk['start'] < $slotEndTime && $brk['end'] > $slotStartTime) {
                     return true;
                 }
             }
@@ -1379,10 +1384,10 @@ class CompanyController extends Controller
             $slotStartStr = $cursor->format('H:i:s');
             $slotEndStr   = $slotEnd->format('H:i:s');
 
-            // Check company breaks
+            // Check company breaks — overlap of [slotStart, slotEnd) with break.
             $onBreak = false;
             foreach ($breaks as $brk) {
-                if ($brk->start_time <= $slotStartStr && $slotStartStr < $brk->end_time) {
+                if ($brk->start_time < $slotEndStr && $brk->end_time > $slotStartStr) {
                     $onBreak = true;
                     break;
                 }

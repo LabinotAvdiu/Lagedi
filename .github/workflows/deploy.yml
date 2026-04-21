@@ -91,6 +91,8 @@ jobs:
             ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
             "set -e && \
              cd /var/www/termini-api && \
+             find storage bootstrap/cache -type d -exec chmod 2775 {} + && \
+             find storage bootstrap/cache -type f -exec chmod 664 {} + && \
              composer install --no-dev --optimize-autoloader --no-interaction && \
              php artisan migrate --force && \
              php artisan optimize:clear && \

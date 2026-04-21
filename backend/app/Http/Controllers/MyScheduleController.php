@@ -18,6 +18,8 @@ use App\Models\EmployeeBreak;
 use App\Models\EmployeeDayOff;
 use App\Models\EmployeeSchedule;
 use App\Models\Service;
+use App\Support\NameFormatter;
+use App\Support\ScheduleConflictChecker;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Http\JsonResponse;
@@ -417,6 +419,28 @@ class MyScheduleController extends Controller
         }
 
         $validated = $request->validated();
+        $force     = (bool) ($validated['force'] ?? false);
+
+        // Conflict check — refuse the break if future appointments START in
+        // the window, unless the caller explicitly asked to force. Confirmed
+        // + pending count ; cancelled / rejected are inert.
+        if (! $force) {
+            $conflicts = ScheduleConflictChecker::appointmentsInBreakWindow(
+                companyId: (int) $companyUser->company_id,
+                companyUserId: (int) $companyUser->id,
+                dayOfWeek: isset($validated['day_of_week']) ? (int) $validated['day_of_week'] : null,
+                breakStart: $validated['start_time'],
+                breakEnd: $validated['end_time'],
+            );
+            if ($conflicts->isNotEmpty()) {
+                return response()->json([
+                    'success'   => false,
+                    'code'      => 'break_conflict',
+                    'message'   => 'Appointments start during this break window.',
+                    'conflicts' => ScheduleConflictChecker::toConflictPayload($conflicts),
+                ], 409);
+            }
+        }
 
         $break = EmployeeBreak::create([
             'company_user_id' => $companyUser->id,
@@ -481,32 +505,68 @@ class MyScheduleController extends Controller
         }
 
         $validated = $request->validated();
+        $startDate = $validated['date'];
+        $endDate   = $validated['until_date'] ?? $startDate;
 
-        // Prevent duplicate date
-        $exists = EmployeeDayOff::where('company_user_id', $companyUser->id)
-            ->where('date', $validated['date'])
-            ->exists();
-
-        if ($exists) {
+        // Hard conflict check — refuse if any live appointment exists on any
+        // day of the range. The user must cancel/refuse those RDVs first.
+        $conflicts = ScheduleConflictChecker::appointmentsInDateRange(
+            companyId: (int) $companyUser->company_id,
+            companyUserId: (int) $companyUser->id,
+            startDate: $startDate,
+            endDate: $endDate,
+        );
+        if ($conflicts->isNotEmpty()) {
             return response()->json([
-                'success' => false,
-                'message' => 'A day off for this date already exists.',
+                'success'   => false,
+                'code'      => 'day_off_conflict',
+                'message'   => 'Appointments exist on these dates. Cancel or refuse them before adding the day off.',
+                'conflicts' => ScheduleConflictChecker::toConflictPayload($conflicts),
             ], 409);
         }
 
-        $dayOff = EmployeeDayOff::create([
-            'company_user_id' => $companyUser->id,
-            'date'            => $validated['date'],
-            'reason'          => $validated['reason'] ?? null,
-        ]);
+        // Expand the range to individual rows ; silently skip dates that
+        // already have a day off so partial overlap with an existing close
+        // doesn't hard-fail the whole request.
+        $existing = EmployeeDayOff::where('company_user_id', $companyUser->id)
+            ->whereBetween('date', [$startDate, $endDate])
+            ->pluck('date')
+            ->map(fn ($d) => $d instanceof Carbon
+                ? $d->toDateString()
+                : substr((string) $d, 0, 10))
+            ->all();
+        $existingSet = array_flip($existing);
+
+        $created = [];
+        $cursor  = Carbon::createFromFormat('Y-m-d', $startDate);
+        $end     = Carbon::createFromFormat('Y-m-d', $endDate);
+        while ($cursor->lte($end)) {
+            $dateStr = $cursor->format('Y-m-d');
+            if (! isset($existingSet[$dateStr])) {
+                $row = EmployeeDayOff::create([
+                    'company_user_id' => $companyUser->id,
+                    'date'            => $dateStr,
+                    'reason'          => $validated['reason'] ?? null,
+                ]);
+                $created[] = [
+                    'id'     => (string) $row->id,
+                    'date'   => $row->date->toDateString(),
+                    'reason' => $row->reason,
+                ];
+            }
+            $cursor->addDay();
+        }
+
+        if (empty($created)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'All days in this range are already marked as off.',
+            ], 409);
+        }
 
         return response()->json([
             'success' => true,
-            'data'    => [
-                'id'     => (string) $dayOff->id,
-                'date'   => $dayOff->date->toDateString(),
-                'reason' => $dayOff->reason,
-            ],
+            'data'    => $created,
         ], 201);
     }
 
@@ -718,8 +778,8 @@ class MyScheduleController extends Controller
             'startTime'       => substr($appointment->start_time, 0, 5),
             'endTime'         => substr($appointment->end_time, 0, 5),
             'status'          => $status,
-            'clientFirstName' => $clientFirstName,
-            'clientLastName'  => $clientLastName,
+            'clientFirstName' => NameFormatter::titleCase($clientFirstName),
+            'clientLastName'  => NameFormatter::titleCase($clientLastName),
             'clientPhone'     => $clientPhone,
             'serviceName'     => $appointment->service?->name,
             'durationMinutes' => $appointment->service ? (int) $appointment->service->duration : null,
