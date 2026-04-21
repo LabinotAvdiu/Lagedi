@@ -21,10 +21,11 @@ class CompanyLocationTest extends TestCase
             'last_name'    => 'Dupont',
             'email'        => 'jean@example.com',
             'password'     => 'Password1',
-            'role'         => 'company',
-            'company_name' => 'Salon Test',
-            'address'      => '1 Rue de la Paix',
-            'city'         => 'Paris',
+            'role'           => 'company',
+            'company_name'   => 'Salon Test',
+            'company_gender' => 'both',
+            'address'        => '1 Rue de la Paix',
+            'city'           => 'Paris',
         ], $overrides);
     }
 

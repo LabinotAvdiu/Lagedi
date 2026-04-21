@@ -12,13 +12,14 @@ class RegisterRequestTest extends TestCase
     private function companyPayload(array $overrides = []): array
     {
         return array_merge([
-            'first_name'   => 'Marie',
-            'last_name'    => 'Curie',
-            'email'        => 'marie@example.com',
-            'password'     => 'Password1',
-            'role'         => 'company',
-            'company_name' => 'Salon Test',
-            'address'      => '1 Rue Test',
+            'first_name'     => 'Marie',
+            'last_name'      => 'Curie',
+            'email'          => 'marie@example.com',
+            'password'       => 'Password1',
+            'role'           => 'company',
+            'company_name'   => 'Salon Test',
+            'company_gender' => 'both',
+            'address'        => '1 Rue Test',
         ], $overrides);
     }
 

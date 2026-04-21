@@ -85,15 +85,30 @@ class MyCompanyWalkInTest extends TestCase
         ]);
     }
 
-    public function testEmployeeBasedOwnerIsRejectedWith403(): void
+    public function testEmployeeBasedOwnerCanCreateWalkInOnOwnPivot(): void
     {
+        // Owners who also serve clients need walk-ins in employee_based mode.
+        // The endpoint pins the new appointment to the caller's pivot so it
+        // shows up in their own planning, not the company's "unassigned" row.
         $this->company->update(['booking_mode' => BookingMode::EmployeeBased->value]);
 
         Sanctum::actingAs($this->owner);
 
-        $this->postJson('/api/my-company/walk-in', $this->validPayload())
-            ->assertStatus(403)
-            ->assertJsonPath('success', false);
+        $response = $this->postJson('/api/my-company/walk-in', $this->validPayload())
+            ->assertStatus(201);
+
+        $response->assertJsonPath('data.status', 'confirmed')
+                 ->assertJsonPath('data.isWalkIn', true);
+
+        $ownerPivotId = $this->owner->companyUsers()
+            ->where('company_id', $this->company->id)
+            ->value('id');
+
+        $this->assertDatabaseHas('appointments', [
+            'company_id'      => $this->company->id,
+            'company_user_id' => $ownerPivotId,
+            'is_walk_in'      => 1,
+        ]);
     }
 
     public function testNonOwnerIsRejectedWith403(): void

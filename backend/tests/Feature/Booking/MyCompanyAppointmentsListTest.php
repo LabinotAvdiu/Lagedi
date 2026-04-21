@@ -80,15 +80,19 @@ class MyCompanyAppointmentsListTest extends TestCase
 
         $confirmed = $this->makeAppointment(AppointmentStatus::Confirmed->value, '09:00:00');
         $pending   = $this->makeAppointment(AppointmentStatus::Pending->value,   '10:00:00');
-        // This one should NOT appear (default filter excludes cancelled)
-        $this->makeAppointment(AppointmentStatus::Cancelled->value, '11:00:00');
+        $cancelled = $this->makeAppointment(AppointmentStatus::Cancelled->value, '11:00:00');
+        // Rejected is excluded by default (never happened).
+        $this->makeAppointment(AppointmentStatus::Rejected->value, '12:00:00');
 
         $response = $this->getJson("/api/my-company/appointments?date={$this->today}");
 
+        // Default filter keeps confirmed, pending, no-show and cancelled so
+        // the owner's timeline stays faithful after marking no-shows.
         $response->assertStatus(200)
-            ->assertJsonCount(2, 'data')
+            ->assertJsonCount(3, 'data')
             ->assertJsonPath('data.0.id', (string) $confirmed->id)
             ->assertJsonPath('data.1.id', (string) $pending->id)
+            ->assertJsonPath('data.2.id', (string) $cancelled->id)
             ->assertJsonStructure([
                 'data' => [
                     '*' => [
