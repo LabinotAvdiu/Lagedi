@@ -21,11 +21,9 @@ return [
         'http://localhost:5173',
         // Flutter web (debug)
         'http://localhost:5555',
-        // Production Flutter web — new canonical domain
+        // Production Flutter web
+        'https://termini-im.com',
         'https://www.termini-im.com',
-        // Production Flutter web — legacy subdomain, kept for a transition
-        // window so cached SPAs and already-shared links don't break.
-        'https://app.termini-im.com',
     ],
 
     // Allow all origins for mobile app (Flutter does not send an Origin header

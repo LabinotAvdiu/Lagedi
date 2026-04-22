@@ -57,6 +57,39 @@
       "button": "Create my free account"
     }
   },
+  "pro": {
+    "badge": "Professional space",
+    "title": "Join Termini Im as a professional",
+    "subtitle": "Create your space and manage your appointments online.",
+    "stepInfo": "Step 1 — Your information",
+    "stepCompany": "Step 2 — Your business",
+    "city": "City",
+    "cityPlaceholder": "Your city",
+    "activityQuestion": "Do you work from a commercial location?",
+    "activityLocal": "Yes, I have a location",
+    "activityLocalDesc": "Hair salon, barbershop, beauty studio...",
+    "activityHome": "No, I work from home",
+    "activityHomeDesc": "I travel to my clients.",
+    "companyName": "Company name",
+    "companyNamePlaceholder": "Your salon / business name",
+    "address": "Address",
+    "addressPlaceholder": "Full salon address",
+    "addressHomePlaceholder": "Your city or service area",
+    "confirmPassword": "Confirm password",
+    "next": "Continue",
+    "back": "Back",
+    "submit": "Create my pro account",
+    "feature1": "Manage your bookings",
+    "feature1Desc": "Online calendar, automatic reminders and zero calls.",
+    "feature2": "Gain visibility",
+    "feature2Desc": "Appear in search results in your city.",
+    "feature3": "Dashboard",
+    "feature3Desc": "Track your stats, reviews and revenue in real time.",
+    "error": {
+      "fillRequired": "Please fill in last name and email.",
+      "passwordMismatch": "Passwords do not match."
+    }
+  },
   "auth": {
     "email": "Email",
     "password": "Password",
