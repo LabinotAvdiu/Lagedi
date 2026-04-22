@@ -394,15 +394,18 @@ class CompanyController extends Controller
     }
 
     /**
-     * Compute a 7-day morning/afternoon availability window for each company.
+     * Compute a 4-day availability window for each company. Each entry is
+     * a { date, available } pair — `available` is true if either the
+     * morning or the afternoon has an open slot that day. Trimmed to 4
+     * days because the home card only renders 4 chips.
      *
-     * The window starts from the first date that has at least one available slot.
-     * Days within the window that are closed or fully booked are marked as
-     * disabled (morning: false, afternoon: false) so the Flutter card can
-     * render them greyed-out.
+     * The window starts from the first date that has at least one available
+     * slot. Days within the window that are closed or fully booked are
+     * emitted with `available: false` so the Flutter card can render them
+     * greyed-out.
      *
      * @param  int[]  $companyIds
-     * @return array<int, list<array{date: string, morning: bool, afternoon: bool}>>
+     * @return array<int, list<array{date: string, available: bool}>>
      */
     private function computeAvailability(array $companyIds): array
     {
@@ -600,18 +603,20 @@ class CompanyController extends Controller
                 }
             }
 
-            // Build the 7-day window from the first available date
+            // Build a short 4-day window from the first available date.
+            // The home card only renders 4 chips, so we trim the payload
+            // and collapse morning/afternoon into a single `available`
+            // flag (true if either half of the day has a free slot).
             $availability = [];
             if ($firstAvailableDate !== null) {
-                for ($i = 0; $i < 7; $i++) {
+                for ($i = 0; $i < 4; $i++) {
                     $date    = $firstAvailableDate->copy()->addDays($i);
                     $dateStr = $date->format('Y-m-d');
                     $flags   = $dailyFlags[$dateStr] ?? ['morning' => false, 'afternoon' => false];
 
                     $availability[] = [
                         'date'      => $dateStr,
-                        'morning'   => $flags['morning'],
-                        'afternoon' => $flags['afternoon'],
+                        'available' => ($flags['morning'] ?? false) || ($flags['afternoon'] ?? false),
                     ];
                 }
             }
