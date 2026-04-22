@@ -12,6 +12,9 @@
 /.vscode
 /.zed
 /auth.json
+# Firebase service account credentials — NEVER commit
+*firebase-adminsdk*.json
+/storage/app/firebase-credentials.json
 /node_modules
 /public/build
 /public/hot

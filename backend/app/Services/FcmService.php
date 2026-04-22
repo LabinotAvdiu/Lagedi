@@ -90,7 +90,10 @@ class FcmService
         string $body,
     ): void {
         try {
-            $message = CloudMessage::withTarget('token', $device->token)
+            // kreait/firebase-php 7.x removed the generic `withTarget` helper;
+            // the supported path is `CloudMessage::new()->toToken(...)`.
+            $message = CloudMessage::new()
+                ->toToken($device->token)
                 ->withNotification(Notification::create($title, $body))
                 ->withData(array_merge(['type' => $type], array_map('strval', $data)));
 
