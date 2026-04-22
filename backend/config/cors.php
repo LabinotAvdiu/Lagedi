@@ -21,9 +21,9 @@ return [
         'http://localhost:5173',
         // Flutter web (debug)
         'http://localhost:5555',
-        // Production domains
+        // Production Flutter web
         'https://termini-im.com',
-        'https://app.termini-im.com',
+        'https://www.termini-im.com',
     ],
 
     // Allow all origins for mobile app (Flutter does not send an Origin header
