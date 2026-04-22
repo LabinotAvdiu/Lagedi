@@ -124,13 +124,50 @@ class CompanyController extends Controller
                       ->orderBy('sort_order');
                 }]);
 
-            // --- Search: LIKE on name or address ---
+            // --- Search: multi-word LIKE across name / address / city /
+            //            employee first_name / last_name ---
+            //
+            // The query is split on whitespace. Every word must match
+            // somewhere (AND between words, OR between fields), so a user
+            // who types "sal don" finds "Salon Donjeta" even when the
+            // match is split between the company name and an employee name.
             if (! empty($validated['search'])) {
-                $search = $validated['search'];
-                $query->where(function ($q) use ($search): void {
-                    $q->where('name', 'LIKE', '%' . $search . '%')
-                      ->orWhere('address', 'LIKE', '%' . $search . '%');
-                });
+                $search = trim($validated['search']);
+                $words  = array_values(array_unique(array_filter(
+                    preg_split('/\s+/', $search) ?: [],
+                    fn ($w) => $w !== ''
+                )));
+
+                if (! empty($words)) {
+                    $query->where(function ($outer) use ($words): void {
+                        foreach ($words as $word) {
+                            $like = '%' . $word . '%';
+                            $outer->where(function ($q) use ($like): void {
+                                $q->where('name', 'LIKE', $like)
+                                  ->orWhere('address', 'LIKE', $like)
+                                  ->orWhere('city', 'LIKE', $like)
+                                  ->orWhereExists(function ($sub) use ($like): void {
+                                      $sub->select(DB::raw(1))
+                                          ->from('company_user')
+                                          ->join(
+                                              'users',
+                                              'users.id',
+                                              '=',
+                                              'company_user.user_id'
+                                          )
+                                          ->whereColumn(
+                                              'company_user.company_id',
+                                              'companies.id'
+                                          )
+                                          ->where(function ($u) use ($like): void {
+                                              $u->where('users.first_name', 'LIKE', $like)
+                                                ->orWhere('users.last_name', 'LIKE', $like);
+                                          });
+                                  });
+                            });
+                        }
+                    });
+                }
             }
 
             // --- City filter ---

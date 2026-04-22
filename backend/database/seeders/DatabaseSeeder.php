@@ -14,6 +14,7 @@ class DatabaseSeeder extends Seeder
             CompanySeeder::class,
             AppointmentSeeder::class,
             Type2CompanySeeder::class,
+            SupportTicketSeeder::class,
         ]);
     }
 }
