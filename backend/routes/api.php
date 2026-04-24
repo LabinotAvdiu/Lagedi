@@ -204,6 +204,13 @@ Route::middleware('auth:sanctum')->prefix('my-company')->group(function () {
     Route::put('/employees/{id}',          [MyCompanyController::class, 'updateEmployee']);
     Route::delete('/employees/{id}',       [MyCompanyController::class, 'destroyEmployee']);
 
+    // Invitation management (resend / revoke)
+    Route::post('/employees/invitations/{id}/resend', [MyCompanyController::class, 'resendInvitation'])
+        ->whereNumber('id')
+        ->middleware('throttle:3,60');
+    Route::delete('/employees/invitations/{id}', [MyCompanyController::class, 'revokeInvitation'])
+        ->whereNumber('id');
+
     // Opening hours
     Route::get('/hours',  [MyCompanyController::class, 'listHours']);
     Route::put('/hours',  [MyCompanyController::class, 'updateHours']);

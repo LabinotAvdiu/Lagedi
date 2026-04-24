@@ -557,6 +557,73 @@ class MyCompanyController extends Controller
     }
 
     /**
+     * POST /api/my-company/employees/invitations/{id}/resend
+     */
+    public function resendInvitation(int $id): JsonResponse
+    {
+        $company = $this->resolveOwnedCompany();
+        if ($company instanceof JsonResponse) {
+            return $company;
+        }
+
+        $invitation = EmployeeInvitation::where('id', $id)
+            ->where('company_id', $company->id)
+            ->where('status', InvitationStatus::Pending)
+            ->first();
+
+        if (! $invitation) {
+            return $this->notFound('invitation');
+        }
+
+        $plaintextToken = bin2hex(random_bytes(32));
+        $invitation->update([
+            'token_hash' => hash('sha256', $plaintextToken),
+            'expires_at' => now()->addDays(7),
+        ]);
+
+        /** @var User $owner */
+        $owner = auth()->user();
+        $invitedUser = User::where('email', $invitation->email)->first();
+        if ($invitedUser) {
+            SendEmployeeInvitationPush::dispatch($invitation, $invitedUser);
+        } else {
+            SendEmployeeInvitationLinkEmail::dispatch($invitation, $company, $owner, $plaintextToken);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data'    => new InvitationResource($invitation),
+        ]);
+    }
+
+    /**
+     * DELETE /api/my-company/employees/invitations/{id}
+     */
+    public function revokeInvitation(int $id): JsonResponse
+    {
+        $company = $this->resolveOwnedCompany();
+        if ($company instanceof JsonResponse) {
+            return $company;
+        }
+
+        $invitation = EmployeeInvitation::where('id', $id)
+            ->where('company_id', $company->id)
+            ->where('status', InvitationStatus::Pending)
+            ->first();
+
+        if (! $invitation) {
+            return $this->notFound('invitation');
+        }
+
+        $invitation->update(['status' => InvitationStatus::Revoked]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Invitation revoked.',
+        ]);
+    }
+
+    /**
      * POST /api/my-company/employees/create
      *
      * Create a new User account and add them as an employee in one transaction.

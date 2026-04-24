@@ -152,7 +152,7 @@ class InviteFlowTest extends TestCase
 
         $invitation->refresh();
         $this->assertNotEquals($oldHash, $invitation->token_hash);
-        $this->assertTrue($invitation->expires_at->diffInDays(now()) >= 6);
+        $this->assertTrue(now()->diffInDays($invitation->expires_at) >= 6);
     }
 
     public function test_revoke_marks_invitation_revoked(): void
