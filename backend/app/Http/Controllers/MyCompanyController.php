@@ -456,8 +456,12 @@ class MyCompanyController extends Controller
 
     /**
      * GET /api/my-company/employees
+     *
+     * Returns a merged list of active members (kind=member) and pending
+     * invitations (kind=invitation). Pass ?include=history to also include
+     * refused/revoked/expired invitations.
      */
-    public function listEmployees(): AnonymousResourceCollection|JsonResponse
+    public function listEmployees(Request $request): JsonResponse
     {
         $company = $this->resolveOwnedCompany();
 
@@ -465,11 +469,24 @@ class MyCompanyController extends Controller
             return $company;
         }
 
-        $employees = CompanyUser::where('company_id', $company->id)
+        $includeHistory = $request->query('include') === 'history';
+
+        $members = CompanyUser::where('company_id', $company->id)
             ->with(['user', 'services'])
             ->get();
 
-        return EmployeeResource::collection($employees);
+        $invitationsQuery = EmployeeInvitation::where('company_id', $company->id);
+        if (! $includeHistory) {
+            $invitationsQuery->where('status', InvitationStatus::Pending);
+        }
+        $invitations = $invitationsQuery->orderByDesc('created_at')->get();
+
+        return response()->json([
+            'data' => array_merge(
+                EmployeeResource::collection($members)->resolve(),
+                InvitationResource::collection($invitations)->resolve(),
+            ),
+        ]);
     }
 
     /**

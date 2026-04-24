@@ -18,6 +18,7 @@ class EmployeeResource extends JsonResource
     {
         return [
             'id'          => (string) $this->id,
+            'kind'        => 'member',
             'role'        => $this->role instanceof \BackedEnum
                 ? $this->role->value
                 : $this->role,
