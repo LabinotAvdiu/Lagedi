@@ -11,6 +11,7 @@ use App\Enums\AppointmentStatus;
 use App\Enums\BookingMode;
 use App\Http\Requests\MyCompany\CreateEmployeeRequest;
 use App\Http\Requests\MyCompany\InviteEmployeeRequest;
+use App\Http\Requests\MyCompany\SendInvitationRequest;
 use App\Http\Requests\MyCompany\StoreCategoryRequest;
 use App\Http\Requests\MyCompany\StoreCapacityOverrideRequest;
 use App\Http\Requests\MyCompany\StoreCompanyBreakRequest;
@@ -28,13 +29,17 @@ use App\Http\Requests\MyCompany\UpdateServiceRequest;
 use App\Http\Resources\CompanyBreakResource;
 use App\Http\Resources\CompanyCapacityOverrideResource;
 use App\Http\Resources\EmployeeResource;
+use App\Http\Resources\InvitationResource;
 use App\Http\Resources\MyCompanyResource;
 use App\Http\Resources\OpeningHourResource;
 use App\Http\Resources\OwnerAppointmentResource;
 use App\Http\Resources\ServiceCategoryResource;
 use App\Jobs\SendBookingConfirmationEmail;
 use App\Jobs\SendEmployeeInvitationEmail;
+use App\Jobs\SendEmployeeInvitationLinkEmail;
+use App\Jobs\SendEmployeeInvitationPush;
 use App\Jobs\SendWalkInCreatedNotification;
+use App\Enums\InvitationStatus;
 use App\Models\Appointment;
 use App\Models\Company;
 use Carbon\Carbon;
@@ -45,6 +50,7 @@ use App\Models\CompanyOpeningHour;
 use App\Models\CompanyUser;
 use App\Models\EmployeeBreak;
 use App\Models\EmployeeDayOff;
+use App\Models\EmployeeInvitation;
 use App\Models\Service;
 use App\Models\ServiceCategory;
 use App\Models\User;
@@ -469,31 +475,31 @@ class MyCompanyController extends Controller
     /**
      * POST /api/my-company/employees/invite
      *
-     * Invite an existing user by email. If not found, return a 422 suggesting
-     * the owner create an account for them instead.
+     * Invite anyone by email. Unknown emails receive an invitation link;
+     * existing users receive a push notification (FCM — Phase 5.3).
      */
-    public function inviteEmployee(InviteEmployeeRequest $request): JsonResponse
+    public function inviteEmployee(SendInvitationRequest $request): JsonResponse
     {
         $company = $this->resolveOwnedCompany();
-
         if ($company instanceof JsonResponse) {
             return $company;
         }
 
-        $user = User::where('email', $request->validated('email'))->first();
+        $email = $request->validated('email');
 
-        if (! $user) {
+        /** @var User $owner */
+        $owner = auth()->user();
+
+        if (strtolower((string) $owner->email) === $email) {
             return response()->json([
                 'success' => false,
-                'message' => 'No account found with this email address. Use the "create employee" endpoint to create a new account.',
+                'message' => 'You cannot invite yourself.',
             ], 422);
         }
 
-        // Prevent duplicate membership
-        $alreadyMember = CompanyUser::where('company_id', $company->id)
-            ->where('user_id', $user->id)
+        $alreadyMember = User::where('email', $email)
+            ->whereHas('companies', fn ($q) => $q->where('company_id', $company->id))
             ->exists();
-
         if ($alreadyMember) {
             return response()->json([
                 'success' => false,
@@ -501,27 +507,53 @@ class MyCompanyController extends Controller
             ], 422);
         }
 
-        $pivot = CompanyUser::create([
-            'company_id'  => $company->id,
-            'user_id'     => $user->id,
-            'role'        => $request->validated('role', CompanyRole::Employee->value),
-            'specialties' => $request->validated('specialties', []),
-            'is_active'   => true,
-        ]);
+        [$invitation, $plaintextToken] = DB::transaction(function () use ($request, $company, $owner, $email) {
+            $existing = EmployeeInvitation::where('company_id', $company->id)
+                ->where('email', $email)
+                ->where('status', InvitationStatus::Pending)
+                ->lockForUpdate()
+                ->first();
 
-        $pivot->load('user');
+            $plaintextToken = bin2hex(random_bytes(32));
+            $tokenHash      = hash('sha256', $plaintextToken);
 
-        /** @var User $owner */
-        $owner = auth()->user();
+            if ($existing) {
+                $existing->update([
+                    'first_name'  => $request->validated('first_name', $existing->first_name),
+                    'last_name'   => $request->validated('last_name', $existing->last_name),
+                    'specialties' => $request->validated('specialties', $existing->specialties),
+                    'token_hash'  => $tokenHash,
+                    'expires_at'  => now()->addDays(7),
+                ]);
+                return [$existing->fresh(), $plaintextToken];
+            }
 
-        // Notify the invited employee immediately.
-        SendEmployeeInvitationEmail::dispatch($user, $owner, $company);
+            $invitation = EmployeeInvitation::create([
+                'company_id'         => $company->id,
+                'invited_by_user_id' => $owner->id,
+                'email'              => $email,
+                'first_name'         => $request->validated('first_name'),
+                'last_name'          => $request->validated('last_name'),
+                'specialties'        => $request->validated('specialties', []),
+                'role'               => $request->validated('role', CompanyRole::Employee->value),
+                'token_hash'         => $tokenHash,
+                'status'             => InvitationStatus::Pending,
+                'expires_at'         => now()->addDays(7),
+            ]);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Employee added.',
-            'data'    => new EmployeeResource($pivot),
-        ], 201);
+            return [$invitation, $plaintextToken];
+        });
+
+        $invitedUser = User::where('email', $email)->first();
+        if ($invitedUser) {
+            SendEmployeeInvitationPush::dispatch($invitation, $invitedUser);
+        } else {
+            SendEmployeeInvitationLinkEmail::dispatch($invitation, $company, $owner, $plaintextToken);
+        }
+
+        return (new InvitationResource($invitation))
+            ->response()
+            ->setStatusCode(201);
     }
 
     /**
