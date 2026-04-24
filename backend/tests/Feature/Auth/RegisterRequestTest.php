@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Auth;
 
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
@@ -26,6 +27,7 @@ class RegisterRequestTest extends TestCase
     public function testBookingModeDefaultsToEmployeeBased(): void
     {
         Notification::fake();
+        Mail::fake();
 
         $this->postJson('/api/auth/register', $this->companyPayload());
 
@@ -38,6 +40,7 @@ class RegisterRequestTest extends TestCase
     public function testBookingModeCapacityBasedIsAccepted(): void
     {
         Notification::fake();
+        Mail::fake();
 
         $this->postJson('/api/auth/register', $this->companyPayload([
             'booking_mode' => 'capacity_based',

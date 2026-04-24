@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Models\User;
 use App\Models\UserDevice;
+use App\Services\NotificationLogger;
 use Illuminate\Support\Facades\Log;
 use Kreait\Firebase\Contract\Messaging;
 use Kreait\Firebase\Exception\Messaging\NotFound;
@@ -55,6 +56,22 @@ class FcmService
 
         $devices = $user->devices()->get();
 
+        // Trace dans notifications_log dès qu'on essaie d'envoyer — même si
+        // aucun device n'est présent ni la config FCM absente. C'est cet
+        // historique qui alimente l'inbox "Mes notifications" côté app.
+        //
+        // On extrait ref_type/ref_id du payload pour que l'inbox puisse
+        // regrouper par resource (appointment / review / …) plus tard.
+        [$refType, $refId] = $this->extractRef($data);
+        NotificationLogger::log(
+            $user,
+            channel: 'push',
+            type: $type,
+            payload: array_merge(['title' => $title, 'body' => $body], $data),
+            refType: $refType,
+            refId: $refId,
+        );
+
         if ($devices->isEmpty()) {
             return;
         }
@@ -78,6 +95,24 @@ class FcmService
         }
     }
 
+    /**
+     * Extrait (ref_type, ref_id) du payload pour alimenter notifications_log.
+     * Retourne [null, null] si aucune resource identifiable.
+     */
+    private function extractRef(array $data): array
+    {
+        if (isset($data['appointmentId']) && $data['appointmentId'] !== '') {
+            return ['appointment', (int) $data['appointmentId']];
+        }
+        if (isset($data['reviewId']) && $data['reviewId'] !== '') {
+            return ['review', (int) $data['reviewId']];
+        }
+        if (isset($data['ticketId']) && $data['ticketId'] !== '') {
+            return ['support_ticket', (int) $data['ticketId']];
+        }
+        return [null, null];
+    }
+
     // -------------------------------------------------------------------------
     // Internals
     // -------------------------------------------------------------------------
@@ -92,10 +127,22 @@ class FcmService
         try {
             // kreait/firebase-php 7.x removed the generic `withTarget` helper;
             // the supported path is `CloudMessage::new()->toToken(...)`.
+            //
+            // We duplicate title/body in the `data` block so the Flutter web
+            // foreground handler can always read them, even when Chrome's FCM
+            // SW strips the `notification` block (it races the JS SW against
+            // the Flutter onMessage listener and the latter sometimes loses).
             $message = CloudMessage::new()
                 ->toToken($device->token)
                 ->withNotification(Notification::create($title, $body))
-                ->withData(array_merge(['type' => $type], array_map('strval', $data)));
+                ->withData(array_merge(
+                    [
+                        'type'  => $type,
+                        'title' => $title,
+                        'body'  => $body,
+                    ],
+                    array_map('strval', $data),
+                ));
 
             $this->messaging->send($message);
         } catch (NotFound $e) {

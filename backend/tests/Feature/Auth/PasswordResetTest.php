@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Auth;
 
+use App\Mail\ResetPasswordMail;
 use App\Models\User;
-use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
-use Illuminate\Support\Facades\Password;
 use Tests\TestCase;
 
 class PasswordResetTest extends TestCase
@@ -19,7 +20,7 @@ class PasswordResetTest extends TestCase
 
     public function testForgotPasswordReturns200ForExistingEmail(): void
     {
-        Notification::fake();
+        Mail::fake();
 
         User::factory()->create(['email' => 'jean@example.com']);
 
@@ -30,17 +31,37 @@ class PasswordResetTest extends TestCase
         $response->assertStatus(200);
     }
 
-    public function testForgotPasswordSendsResetNotificationForExistingUser(): void
+    public function testForgotPasswordSendsResetMailForExistingUser(): void
     {
-        Notification::fake();
+        Mail::fake();
 
-        $user = User::factory()->create(['email' => 'jean@example.com']);
+        User::factory()->create(['email' => 'jean@example.com']);
 
         $this->postJson('/api/auth/forgot-password', [
             'email' => 'jean@example.com',
         ]);
 
-        Notification::assertSentTo($user, ResetPassword::class);
+        Mail::assertSent(ResetPasswordMail::class, function (ResetPasswordMail $mail) {
+            return $mail->hasTo('jean@example.com');
+        });
+    }
+
+    public function testForgotPasswordPersistsHashedTokenInDatabase(): void
+    {
+        Mail::fake();
+
+        User::factory()->create(['email' => 'jean@example.com']);
+
+        $this->postJson('/api/auth/forgot-password', [
+            'email' => 'jean@example.com',
+        ]);
+
+        $record = DB::table('password_reset_tokens')
+            ->where('email', 'jean@example.com')
+            ->first();
+
+        $this->assertNotNull($record);
+        $this->assertNotEmpty($record->token);
     }
 
     public function testForgotPasswordReturns200ForNonExistentEmailAntiEnumeration(): void
@@ -53,15 +74,15 @@ class PasswordResetTest extends TestCase
         $response->assertStatus(200);
     }
 
-    public function testForgotPasswordDoesNotSendNotificationForUnknownEmail(): void
+    public function testForgotPasswordDoesNotSendMailForUnknownEmail(): void
     {
-        Notification::fake();
+        Mail::fake();
 
         $this->postJson('/api/auth/forgot-password', [
             'email' => 'nobody@example.com',
         ]);
 
-        Notification::assertNothingSent();
+        Mail::assertNothingSent();
     }
 
     public function testForgotPasswordFailsWithMissingEmail(): void
@@ -88,54 +109,51 @@ class PasswordResetTest extends TestCase
 
     public function testCanResetPasswordWithValidToken(): void
     {
-        Notification::fake();
-
         $user = User::factory()->create(['email' => 'jean@example.com']);
 
-        // Trigger the reset link to get a real broker token
-        Password::sendResetLink(['email' => 'jean@example.com']);
-
-        $token = null;
-        Notification::assertSentTo($user, ResetPassword::class, function ($notification) use (&$token) {
-            $token = $notification->token;
-            return true;
-        });
+        $plainToken = 'R3SET1';
+        DB::table('password_reset_tokens')->insert([
+            'email'      => 'jean@example.com',
+            'token'      => Hash::make($plainToken),
+            'created_at' => now(),
+        ]);
 
         $response = $this->postJson('/api/auth/reset-password', [
             'email'                 => 'jean@example.com',
-            'token'                 => $token,
+            'token'                 => $plainToken,
             'password'              => 'NewPassword1',
             'password_confirmation' => 'NewPassword1',
         ]);
 
         $response->assertStatus(200);
 
-        // Verify the new password hash is different (password was changed)
         $updatedUser = $user->fresh();
         $this->assertTrue(Hash::check('NewPassword1', $updatedUser->password));
+
+        // Token record should be consumed
+        $this->assertDatabaseMissing('password_reset_tokens', [
+            'email' => 'jean@example.com',
+        ]);
     }
 
     public function testResetPasswordClearsAccountLockout(): void
     {
-        Notification::fake();
-
         $user = User::factory()->create([
             'email'                  => 'jean@example.com',
             'failed_login_attempts'  => 10,
             'locked_until'           => now()->addMinutes(30),
         ]);
 
-        Password::sendResetLink(['email' => 'jean@example.com']);
-
-        $token = null;
-        Notification::assertSentTo($user, ResetPassword::class, function ($notification) use (&$token) {
-            $token = $notification->token;
-            return true;
-        });
+        $plainToken = 'R3SET2';
+        DB::table('password_reset_tokens')->insert([
+            'email'      => 'jean@example.com',
+            'token'      => Hash::make($plainToken),
+            'created_at' => now(),
+        ]);
 
         $this->postJson('/api/auth/reset-password', [
             'email'                 => 'jean@example.com',
-            'token'                 => $token,
+            'token'                 => $plainToken,
             'password'              => 'NewPassword1',
             'password_confirmation' => 'NewPassword1',
         ]);
@@ -144,6 +162,33 @@ class PasswordResetTest extends TestCase
             'id'                    => $user->id,
             'failed_login_attempts' => 0,
             'locked_until'          => null,
+        ]);
+    }
+
+    public function testResetPasswordFailsWithExpiredToken(): void
+    {
+        User::factory()->create(['email' => 'jean@example.com']);
+
+        $plainToken = 'R3SET3';
+        DB::table('password_reset_tokens')->insert([
+            'email'      => 'jean@example.com',
+            'token'      => Hash::make($plainToken),
+            'created_at' => now()->subMinutes(61), // one minute past the 60-minute TTL
+        ]);
+
+        $response = $this->postJson('/api/auth/reset-password', [
+            'email'                 => 'jean@example.com',
+            'token'                 => $plainToken,
+            'password'              => 'NewPassword1',
+            'password_confirmation' => 'NewPassword1',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonPath('errors.token.0', 'expired');
+
+        // Expired tokens are purged so a stale record can't be reused
+        $this->assertDatabaseMissing('password_reset_tokens', [
+            'email' => 'jean@example.com',
         ]);
     }
 

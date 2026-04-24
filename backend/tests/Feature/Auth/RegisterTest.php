@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Auth;
 
 use App\Models\User;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
@@ -24,6 +25,7 @@ class RegisterTest extends TestCase
     public function testUserCanRegister(): void
     {
         Notification::fake();
+        Mail::fake();
 
         $response = $this->postJson('/api/auth/register', $this->validPayload());
 
@@ -46,6 +48,7 @@ class RegisterTest extends TestCase
     public function testCompanyRegistrationCreatesCompanyAndEmployee(): void
     {
         Notification::fake();
+        Mail::fake();
 
         $response = $this->postJson('/api/auth/register', $this->validPayload([
             'role'           => 'company',
@@ -166,6 +169,7 @@ class RegisterTest extends TestCase
     public function testRegisterResponseDoesNotExposePassword(): void
     {
         Notification::fake();
+        Mail::fake();
 
         $response = $this->postJson('/api/auth/register', $this->validPayload());
 
@@ -176,6 +180,7 @@ class RegisterTest extends TestCase
     public function testRegisterIssuesBothAccessAndRefreshToken(): void
     {
         Notification::fake();
+        Mail::fake();
 
         $response = $this->postJson('/api/auth/register', $this->validPayload());
 
@@ -187,6 +192,7 @@ class RegisterTest extends TestCase
     public function testRegisterWithRoleUserDoesNotCreateCompany(): void
     {
         Notification::fake();
+        Mail::fake();
 
         $this->postJson('/api/auth/register', $this->validPayload(['role' => 'user']));
 

@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Models\Appointment;
+use App\Models\User;
 use App\Observers\AppointmentObserver;
+use App\Observers\UserObserver;
 use App\Services\FcmService;
 use Illuminate\Support\ServiceProvider;
 use Kreait\Laravel\Firebase\Facades\Firebase;
@@ -43,5 +45,8 @@ class AppServiceProvider extends ServiceProvider
 
         // Observer push notifications.
         Appointment::observe(AppointmentObserver::class);
+
+        // D19 — Seed notification preferences on user creation.
+        User::observe(UserObserver::class);
     }
 }

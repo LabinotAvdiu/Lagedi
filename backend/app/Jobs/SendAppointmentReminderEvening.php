@@ -4,14 +4,17 @@ declare(strict_types=1);
 
 namespace App\Jobs;
 
+use App\Enums\NotificationType;
 use App\Models\Appointment;
 use App\Models\AppointmentNotificationSent;
 use App\Services\FcmService;
+use App\Services\NotificationLogger;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
 
 class SendAppointmentReminderEvening implements ShouldQueue
 {
@@ -29,6 +32,12 @@ class SendAppointmentReminderEvening implements ShouldQueue
 
         // Walk-in sans user_id — pas de notification.
         if (! $client) {
+            return;
+        }
+
+        // D19 — Opt-out preference
+        if (! $client->isNotificationEnabled('push', NotificationType::REMINDER_EVENING)) {
+            Log::info('[FCM] reminder_evening skipped — user opted out', ['client_id' => $client->id]);
             return;
         }
 
@@ -55,5 +64,15 @@ class SendAppointmentReminderEvening implements ShouldQueue
         );
 
         AppointmentNotificationSent::markSent($appt->id, $client->id, $type);
+
+        // D20 — Log
+        NotificationLogger::log(
+            user: $client,
+            channel: 'push',
+            type: NotificationType::REMINDER_EVENING,
+            payload: ['companyName' => $appt->company?->name, 'time' => $time],
+            refType: 'appointment',
+            refId: $appt->id,
+        );
     }
 }

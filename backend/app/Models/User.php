@@ -4,22 +4,25 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use App\Notifications\VerifyEmailNotification;
+use App\Mail\ResetPasswordMail;
+use App\Mail\VerifyEmailMail;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use App\Enums\UserRole;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable implements MustVerifyEmail
 {
-    use HasApiTokens, HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, Notifiable, SoftDeletes;
 
     protected $fillable = [
         'first_name',
@@ -34,6 +37,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'failed_login_attempts',
         'locked_until',
         'locale',
+        'timezone',
         'email_verified_at',
     ];
 
@@ -82,12 +86,36 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     // -------------------------------------------------------------------------
+    // One-time code generator
+    // -------------------------------------------------------------------------
+
+    /**
+     * 6-character uppercase code for email verification / password reset.
+     *
+     * Alphabet excludes the visually ambiguous pairs 0/O and 1/I so users
+     * reading the code off an email and typing it into a 6-cell OTP input
+     * don't get tripped up.
+     */
+    private static function generateOtpCode(): string
+    {
+        $alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 32 chars
+        $max      = strlen($alphabet) - 1;
+        $out      = '';
+
+        for ($i = 0; $i < 6; $i++) {
+            $out .= $alphabet[random_int(0, $max)];
+        }
+
+        return $out;
+    }
+
+    // -------------------------------------------------------------------------
     // Email verification — custom token stored in email_verification_tokens
     // -------------------------------------------------------------------------
 
     public function sendEmailVerificationNotification(): void
     {
-        $plainToken = strtoupper(Str::random(6)); // e.g. "A3B7KP"
+        $plainToken  = self::generateOtpCode(); // e.g. "A3B7KP" — no 0/O/1/I
         $hashedToken = Hash::make($plainToken);
 
         \DB::table('email_verification_tokens')->upsert(
@@ -97,11 +125,40 @@ class User extends Authenticatable implements MustVerifyEmail
                 'expires_at' => now()->addHours(24),
                 'created_at' => now(),
             ],
-            ['email'],            // unique key
-            ['token', 'expires_at', 'created_at'] // columns to update on conflict
+            ['email'],                                // unique key
+            ['token', 'expires_at', 'created_at'],    // updated on conflict
         );
 
-        $this->notify((new VerifyEmailNotification($plainToken))->locale($this->locale ?? 'fr'));
+        Mail::to($this->email)
+            ->locale($this->locale ?? config('app.fallback_locale', 'fr'))
+            ->send(new VerifyEmailMail($this, $plainToken));
+    }
+
+    /**
+     * Generate a 6-character one-time code, persist it (hashed) in
+     * password_reset_tokens, and email it to the user in their locale.
+     *
+     * Mirrors the verify-email flow so the mobile app has a single
+     * "enter the code" UX instead of a clickable link.
+     */
+    public function sendPasswordResetCode(): string
+    {
+        $plainToken  = self::generateOtpCode();
+        $hashedToken = Hash::make($plainToken);
+
+        \DB::table('password_reset_tokens')->updateOrInsert(
+            ['email' => $this->email],
+            [
+                'token'      => $hashedToken,
+                'created_at' => now(),
+            ],
+        );
+
+        Mail::to($this->email)
+            ->locale($this->locale ?? config('app.fallback_locale', 'fr'))
+            ->send(new ResetPasswordMail($this, $plainToken));
+
+        return $plainToken;
     }
 
     // -------------------------------------------------------------------------
@@ -186,5 +243,54 @@ class User extends Authenticatable implements MustVerifyEmail
     public function reviews(): HasMany
     {
         return $this->hasMany(Review::class);
+    }
+
+    // -------------------------------------------------------------------------
+    // D19 — Notification preferences
+    // -------------------------------------------------------------------------
+
+    public function notificationPreferences(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\NotificationPreference::class);
+    }
+
+    /**
+     * Vérifie si une notification est activée pour ce canal × type.
+     *
+     * - Toujours true pour les types transactionnels (confirmations, annulations, OTP…)
+     * - Vérifie notification_preferences pour les types configurables
+     */
+    public function isNotificationEnabled(string $channel, string $type): bool
+    {
+        return \App\Services\NotificationGate::isPreferenceEnabled($this, $channel, $type);
+    }
+
+    /**
+     * Seed les préférences par défaut (enabled=true) pour tous les types × canaux.
+     * Non-transactionnel — appelé depuis l'Observer UserObserver.
+     */
+    public function seedDefaultNotificationPreferences(): void
+    {
+        $channels = ['push', 'email', 'in-app'];
+        $types    = \App\Enums\NotificationType::all();
+
+        $rows = [];
+        $now  = now();
+
+        foreach ($channels as $channel) {
+            foreach ($types as $type) {
+                $rows[] = [
+                    'user_id'    => $this->id,
+                    'channel'    => $channel,
+                    'type'       => $type,
+                    'enabled'    => true,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+            }
+        }
+
+        // insertOrIgnore : si des lignes existent déjà (ex: re-seed), on ignore
+        \App\Models\NotificationPreference::insertOrIgnore($rows);
     }
 }

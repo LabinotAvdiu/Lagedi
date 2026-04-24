@@ -34,4 +34,45 @@ return [
     // Cancellation by salon (recipient: client)
     'appointment_cancelled_by_owner_title' => 'Appointment cancelled',
     'appointment_cancelled_by_owner_body'  => ':company_name cancelled your :service_name appointment at :time.',
+
+    // C8 — New review (recipient: owner)
+    'review_new_positive_title' => 'New review — :rating stars ⭐',
+    'review_new_neutral_title'  => 'New comment from :client_name',
+    'review_new_body'           => ':comment',
+
+    // C9 — Walk-in created by employee (recipient: owner)
+    'walk_in_created_title' => 'Walk-in at your salon',
+    'walk_in_created_body'  => ':employee_name added :client_name at :time.',
+
+    // C10 — Appointment rescheduled by salon (recipient: client)
+    'appointment_rescheduled_by_owner_title' => 'Your appointment has been moved',
+    'appointment_rescheduled_by_owner_body'  => 'Moved from :old_time to :new_time. Confirm or cancel.',
+
+    // C11 — Appointment rescheduled by client (recipient: owner/employee)
+    'appointment_rescheduled_by_client_title' => 'Change — :client_name',
+    'appointment_rescheduled_by_client_body'  => 'Moved to :new_date at :new_time. Auto-confirmed.',
+
+    // C12 — Review request J+1 (recipient: client)
+    'review_request_title' => 'How was your visit at :salon_name?',
+    'review_request_body'  => 'A 10-sec review helps others make the right choice.',
+
+    // C13 — Support reply (recipient: requester)
+    'support_reply_title' => 'Reply from the Termini im team',
+    'support_reply_body'  => ':message',
+
+    // C14 — Capacity full (recipient: owner)
+    'capacity_full_title' => 'Full for :date',
+    'capacity_full_body'  => 'All slots are booked. Do you need to increase capacity?',
+
+    // C15 — Employee invitation received (recipient: invited user)
+    'invitation_received_title' => 'New invitation',
+    'invitation_received_body'  => ':company invites you to join the team',
+
+    // C16 — Invitation decision (recipient: owner who invited)
+    'invitation_accepted_title' => 'Invitation accepted',
+    'invitation_accepted_body'  => ':email accepted your invitation',
+    'invitation_refused_title'  => 'Invitation declined',
+    'invitation_refused_body'   => ':email declined your invitation',
+    'invitation_expired_title'  => 'Invitation expired',
+    'invitation_expired_body'   => 'The invitation for :email has expired',
 ];

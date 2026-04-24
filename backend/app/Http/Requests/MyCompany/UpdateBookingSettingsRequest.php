@@ -16,7 +16,8 @@ class UpdateBookingSettingsRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'booking_mode' => ['required', 'string', 'in:employee_based,capacity_based'],
+            'booking_mode'          => ['sometimes', 'string', 'in:employee_based,capacity_based'],
+            'capacity_auto_approve' => ['sometimes', 'boolean'],
         ];
     }
 }

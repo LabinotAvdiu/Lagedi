@@ -34,4 +34,45 @@ return [
     // Annulation par le salon (destinataire : client)
     'appointment_cancelled_by_owner_title' => 'Rendez-vous annulé',
     'appointment_cancelled_by_owner_body'  => ':company_name a annulé votre rendez-vous :service_name à :time.',
+
+    // C8 — Nouvel avis (destinataire : owner)
+    'review_new_positive_title' => 'Nouvel avis — :rating étoiles ⭐',
+    'review_new_neutral_title'  => 'Commentaire de :client_name',
+    'review_new_body'           => ':comment',
+
+    // C9 — Walk-in créé par employé (destinataire : owner)
+    'walk_in_created_title' => 'Walk-in dans votre salon',
+    'walk_in_created_body'  => ':employee_name a ajouté :client_name à :time.',
+
+    // C10 — RDV déplacé par le salon (destinataire : client)
+    'appointment_rescheduled_by_owner_title' => 'Modification de votre rendez-vous',
+    'appointment_rescheduled_by_owner_body'  => 'Déplacé de :old_time à :new_time. Confirme ou annule.',
+
+    // C11 — RDV déplacé par le client (destinataire : owner/employé)
+    'appointment_rescheduled_by_client_title' => 'Modification — :client_name',
+    'appointment_rescheduled_by_client_body'  => 'Déplacé au :new_date à :new_time. Confirmé automatiquement.',
+
+    // C12 — Demande d'avis J+1 (destinataire : client)
+    'review_request_title' => 'Comment s\'est passé votre visite chez :salon_name ?',
+    'review_request_body'  => 'Un avis en 10 sec aide les autres à bien choisir.',
+
+    // C13 — Réponse support (destinataire : demandeur)
+    'support_reply_title' => 'Réponse de l\'équipe Termini im',
+    'support_reply_body'  => ':message',
+
+    // C14 — Capacité atteinte (destinataire : owner)
+    'capacity_full_title' => 'Complet pour le :date',
+    'capacity_full_body'  => 'Tous les créneaux sont pris. Faut-il augmenter la capacité ?',
+
+    // C15 — Invitation employé reçue (destinataire : utilisateur invité)
+    'invitation_received_title' => 'Nouvelle invitation',
+    'invitation_received_body'  => ':company t\'invite à rejoindre l\'équipe',
+
+    // C16 — Décision invitation (destinataire : owner qui a invité)
+    'invitation_accepted_title' => 'Invitation acceptée',
+    'invitation_accepted_body'  => ':email a accepté ton invitation',
+    'invitation_refused_title'  => 'Invitation refusée',
+    'invitation_refused_body'   => ':email a refusé ton invitation',
+    'invitation_expired_title'  => 'Invitation expirée',
+    'invitation_expired_body'   => 'L\'invitation pour :email a expiré',
 ];

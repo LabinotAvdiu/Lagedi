@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 #[Fillable([
     'name', 'description', 'phone', 'phone_secondary', 'email',
     'address', 'city', 'postal_code', 'country',
-    'gender', 'booking_mode', 'location', 'profile_image_url',
+    'gender', 'booking_mode', 'capacity_auto_approve', 'location', 'profile_image_url',
     'rating', 'review_count', 'price_level', 'min_cancel_hours',
 ])]
 class Company extends Model
@@ -26,11 +26,12 @@ class Company extends Model
             // 'location' is a MySQL POINT (binary geometry) — do NOT cast to 'array'.
             // json_decode() on a binary POINT blob throws errors and adds overhead.
             // Use DB::raw('ST_AsGeoJSON(location)') in queries that need coordinates.
-            'gender'       => Gender::class,
-            'booking_mode' => BookingMode::class,
-            'rating'       => 'decimal:2',
-            'review_count' => 'integer',
-            'price_level'  => 'integer',
+            'gender'                => Gender::class,
+            'booking_mode'          => BookingMode::class,
+            'capacity_auto_approve' => 'boolean',
+            'rating'                => 'decimal:2',
+            'review_count'          => 'integer',
+            'price_level'           => 'integer',
         ];
     }
 

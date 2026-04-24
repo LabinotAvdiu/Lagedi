@@ -191,7 +191,10 @@ class CompanyController extends Controller
 
             $items      = $paginator->items() ?: [];
             $companyIds = array_map(fn ($c) => $c->id, $items);
-            $availability = $this->computeAvailability($companyIds);
+            $availability = $this->computeAvailability(
+                $companyIds,
+                $validated['date'] ?? null,
+            );
 
             $itemArrays = [];
             foreach ($items as $c) {
@@ -394,17 +397,27 @@ class CompanyController extends Controller
     }
 
     /**
-     * Compute a 7-day morning/afternoon availability window for each company.
+     * Compute a 4-day availability window for each company. Each entry is
+     * a { date, available } pair — `available` is true if either the
+     * morning or the afternoon has an open slot that day. Trimmed to 4
+     * days because the home card only renders 4 chips.
      *
-     * The window starts from the first date that has at least one available slot.
-     * Days within the window that are closed or fully booked are marked as
-     * disabled (morning: false, afternoon: false) so the Flutter card can
-     * render them greyed-out.
+     * Without `$targetDate`, the window starts from the first date that has
+     * at least one available slot (discovery mode — "next thing you can
+     * book"). With `$targetDate` (shape `YYYY-MM-DD`), the window is
+     * *centered around* the requested day: `[target-1, target, target+1,
+     * target+2]`, clamped so we never surface a past day. This mirrors what
+     * the user sees in the search header — if they ask for the 23rd, they
+     * expect cards to showcase slots on and around the 23rd, not whatever
+     * date falls next on the calendar.
+     *
+     * Days within the window that are closed or fully booked are emitted
+     * with `available: false` so the Flutter card can render them greyed-out.
      *
      * @param  int[]  $companyIds
-     * @return array<int, list<array{date: string, morning: bool, afternoon: bool}>>
+     * @return array<int, list<array{date: string, available: bool}>>
      */
-    private function computeAvailability(array $companyIds): array
+    private function computeAvailability(array $companyIds, ?string $targetDate = null): array
     {
         if (empty($companyIds)) {
             return [];
@@ -412,7 +425,28 @@ class CompanyController extends Controller
 
         $now   = Carbon::now();
         $today = Carbon::today();
+
+        // Pre-compute the window start when a target is provided — the scan
+        // must cover up to `target + 2` days, so bump the range when the user
+        // is searching far in the future.
+        $targetCarbon = null;
+        if ($targetDate !== null && $targetDate !== '') {
+            try {
+                $targetCarbon = Carbon::createFromFormat('Y-m-d', $targetDate)->startOfDay();
+            } catch (\Throwable $e) {
+                // Silently ignore malformed inputs — request validation already
+                // rejects bad shapes, this is belt-and-suspenders only.
+                $targetCarbon = null;
+            }
+        }
+
         $scanDays = 37;
+        if ($targetCarbon !== null) {
+            $daysUntilTarget = $today->diffInDays($targetCarbon, false);
+            // `+ 3` so `[target-1 .. target+2]` is always within the scanned
+            // range, even when the user picks the very last selectable day.
+            $scanDays = (int) max($scanDays, $daysUntilTarget + 3);
+        }
         $scanEnd  = $today->copy()->addDays($scanDays);
 
         // --- Opening hours for every company in the batch ---
@@ -600,18 +634,35 @@ class CompanyController extends Controller
                 }
             }
 
-            // Build the 7-day window from the first available date
+            // Build a short 4-day window. The home card only renders 4
+            // chips, so we trim the payload and collapse morning/afternoon
+            // into a single `available` flag (true if either half of the
+            // day has a free slot).
+            //
+            // Two modes:
+            //   - target given  → centre on target-1: `[target-1 .. target+2]`,
+            //                     clamped to today so we never show the past.
+            //   - no target     → start from the first day with any free slot
+            //                     (discovery / "next available").
             $availability = [];
-            if ($firstAvailableDate !== null) {
-                for ($i = 0; $i < 7; $i++) {
-                    $date    = $firstAvailableDate->copy()->addDays($i);
+            $windowStart  = null;
+
+            if ($targetCarbon !== null) {
+                $candidate   = $targetCarbon->copy()->subDay();
+                $windowStart = $candidate->lt($today) ? $today->copy() : $candidate;
+            } elseif ($firstAvailableDate !== null) {
+                $windowStart = $firstAvailableDate;
+            }
+
+            if ($windowStart !== null) {
+                for ($i = 0; $i < 4; $i++) {
+                    $date    = $windowStart->copy()->addDays($i);
                     $dateStr = $date->format('Y-m-d');
                     $flags   = $dailyFlags[$dateStr] ?? ['morning' => false, 'afternoon' => false];
 
                     $availability[] = [
                         'date'      => $dateStr,
-                        'morning'   => $flags['morning'],
-                        'afternoon' => $flags['afternoon'],
+                        'available' => ($flags['morning'] ?? false) || ($flags['afternoon'] ?? false),
                     ];
                 }
             }

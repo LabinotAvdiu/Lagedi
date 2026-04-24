@@ -35,10 +35,11 @@ class CompanyDetailResource extends JsonResource
             'postalCode'  => $this->postal_code,
             'country'     => $this->country,
             'gender'      => $this->gender?->value,
-            'bookingMode' => $this->booking_mode instanceof \BackedEnum
+            'bookingMode'          => $this->booking_mode instanceof \BackedEnum
                 ? $this->booking_mode->value
                 : $this->booking_mode,
-            'minCancelHours' => (int) ($this->min_cancel_hours ?? 2),
+            'capacityAutoApprove'  => (bool) ($this->capacity_auto_approve ?? false),
+            'minCancelHours'       => (int) ($this->min_cancel_hours ?? 2),
             'rating'      => (float) $this->rating,
             'reviewCount' => (int) $this->review_count,
             'priceLevel'  => (int) $this->price_level,

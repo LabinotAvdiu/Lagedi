@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Enums\AppointmentStatus;
+use App\Enums\CompanyRole;
+use App\Enums\InvitationStatus;
 use App\Enums\UserRole;
 use App\Http\Requests\Auth\ChangePasswordRequest;
 use App\Http\Requests\Auth\ForgotPasswordRequest;
@@ -15,7 +18,14 @@ use App\Http\Requests\Auth\UpdateProfileRequest;
 use App\Http\Requests\Auth\VerifyEmailRequest;
 use App\Http\Resources\AuthResource;
 use App\Http\Resources\UserResource;
+use App\Jobs\SendAppointmentCancelledByClientNotification;
+use App\Jobs\SendInvitationDecisionPush;
+use App\Jobs\SendWelcomeClientEmail;
+use App\Jobs\SendWelcomeOwnerEmail;
+use App\Models\Appointment;
 use App\Models\Company;
+use App\Models\CompanyUser;
+use App\Models\EmployeeInvitation;
 use App\Models\RefreshToken;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
@@ -23,7 +33,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class AuthController extends Controller
@@ -34,8 +44,35 @@ class AuthController extends Controller
         $data = $request->validated();
         $role = $data['role'] ?? 'user';
 
-        $user = DB::transaction(function () use ($data, $role): User {
-            $user = User::create([
+        // --- Invitation-token branch (pre-flight validation) -----------------
+        $invitation = null;
+        if (! empty($data['invitation_token'])) {
+            $rawToken   = $data['invitation_token'];
+            $invitation = EmployeeInvitation::where('token_hash', hash('sha256', $rawToken))
+                ->with('company')
+                ->first();
+
+            if (! $invitation || $invitation->status !== InvitationStatus::Pending) {
+                return response()->json(['message' => 'Invitation no longer valid.'], 410);
+            }
+
+            if ($invitation->expires_at->isPast()) {
+                return response()->json(['message' => 'Invitation expired.'], 410);
+            }
+
+            if (strtolower($data['email']) !== strtolower($invitation->email)) {
+                return response()->json([
+                    'message' => 'Email does not match invitation.',
+                    'errors'  => ['email' => ['email-mismatch']],
+                ], 422);
+            }
+        }
+        // ---------------------------------------------------------------------
+
+        $user = DB::transaction(function () use ($data, $role, $invitation): User {
+            // Build user attributes — merge email_verified_at when coming from
+            // a valid invitation (server-derived, never client-controlled).
+            $userAttributes = [
                 'first_name' => $data['first_name'],
                 'last_name'  => $data['last_name'],
                 'email'      => $data['email'],
@@ -45,7 +82,13 @@ class AuthController extends Controller
                 'gender'     => $data['gender'] ?? null,
                 'role'       => $role,
                 'locale'     => $data['locale'] ?? 'fr',
-            ]);
+            ];
+
+            if ($invitation !== null) {
+                $userAttributes['email_verified_at'] = now();
+            }
+
+            $user = User::create($userAttributes);
 
             if ($role === UserRole::Company->value) {
                 $company = Company::create([
@@ -72,10 +115,33 @@ class AuthController extends Controller
                 ]);
             }
 
+            // --- Post-create invitation acceptance (inside same transaction) -
+            if ($invitation !== null) {
+                CompanyUser::create([
+                    'company_id'  => $invitation->company_id,
+                    'user_id'     => $user->id,
+                    'role'        => $invitation->role ?? CompanyRole::Employee,
+                    'specialties' => $invitation->specialties ?? [],
+                    'is_active'   => true,
+                ]);
+
+                $invitation->update([
+                    'status'            => InvitationStatus::Accepted,
+                    'accepted_at'       => now(),
+                    'resulting_user_id' => $user->id,
+                ]);
+            }
+            // -----------------------------------------------------------------
+
             return $user;
         });
 
-        $user->sendEmailVerificationNotification();
+        // Dispatch outside the transaction so the job is only queued on commit.
+        if ($invitation !== null) {
+            SendInvitationDecisionPush::dispatch($invitation->fresh(), 'accepted');
+        } else {
+            $user->sendEmailVerificationNotification();
+        }
 
         [$accessToken, $refreshToken] = $this->issueTokenPair($user);
 
@@ -508,36 +574,68 @@ class AuthController extends Controller
     }
 
     // POST /auth/forgot-password
+    //
+    // Emails a 6-character code (hashed in password_reset_tokens) in the
+    // recipient's locale. Always returns 200 regardless of whether the
+    // email exists, to prevent user enumeration.
     public function forgotPassword(ForgotPasswordRequest $request): JsonResponse
     {
-        Password::sendResetLink($request->only('email'));
+        $user = User::where('email', $request->validated('email'))->first();
 
-        // Always 200 to avoid email enumeration
+        if ($user) {
+            $user->sendPasswordResetCode();
+        }
+
         return response()->json(null, 200);
     }
 
     // POST /auth/reset-password
+    //
+    // Validates the 6-character code issued by forgotPassword, replaces the
+    // password, revokes all existing sessions/refresh tokens, and consumes
+    // the reset token. Mirrors the verify-email flow (OTP, no signed URL).
     public function resetPassword(ResetPasswordRequest $request): JsonResponse
     {
-        $status = Password::reset(
-            $request->only('email', 'password', 'password_confirmation', 'token'),
-            function (User $user, string $password) {
-                $user->forceFill([
-                    'password'              => Hash::make($password),
-                    'failed_login_attempts' => 0,
-                    'locked_until'          => null,
-                ])->save();
+        $data = $request->validated();
 
-                $user->tokens()->delete();
-                $user->refreshTokens()->update(['revoked_at' => now()]);
-            }
-        );
+        $record = DB::table('password_reset_tokens')
+            ->where('email', $data['email'])
+            ->first();
 
-        if ($status !== Password::PASSWORD_RESET) {
+        if (! $record || ! Hash::check($data['token'], $record->token)) {
             return response()->json([
                 'errors' => ['token' => ['invalid_or_expired']],
             ], 422);
         }
+
+        // Tokens are valid for 60 minutes from issuance.
+        $createdAt = \Illuminate\Support\Carbon::parse($record->created_at);
+        if ($createdAt->addMinutes(60)->isPast()) {
+            DB::table('password_reset_tokens')->where('email', $data['email'])->delete();
+
+            return response()->json([
+                'errors' => ['token' => ['expired']],
+            ], 422);
+        }
+
+        $user = User::where('email', $data['email'])->first();
+
+        if (! $user) {
+            return response()->json([
+                'errors' => ['email' => ['not_found']],
+            ], 404);
+        }
+
+        $user->forceFill([
+            'password'              => Hash::make($data['password']),
+            'failed_login_attempts' => 0,
+            'locked_until'          => null,
+        ])->save();
+
+        $user->tokens()->delete();
+        $user->refreshTokens()->update(['revoked_at' => now()]);
+
+        DB::table('password_reset_tokens')->where('email', $data['email'])->delete();
 
         return response()->json(null, 200);
     }
@@ -574,6 +672,14 @@ class AuthController extends Controller
         $user->markEmailAsVerified();
         DB::table('email_verification_tokens')->where('email', $data['email'])->delete();
 
+        // Dispatch role-appropriate welcome email at T+5 min so the user
+        // first sees the OTP confirmation screen before the email arrives.
+        if ($user->role?->value === 'company') {
+            SendWelcomeOwnerEmail::dispatch($user)->delay(now()->addMinutes(5));
+        } else {
+            SendWelcomeClientEmail::dispatch($user)->delay(now()->addMinutes(5));
+        }
+
         return new UserResource($user);
     }
 
@@ -594,15 +700,104 @@ class AuthController extends Controller
         return response()->json(null, 200);
     }
 
+    // DELETE /auth/account
+    //
+    // Anonymises PII, cancels future appointments, detaches company memberships
+    // and soft-deletes the user. Owners with an active salon are blocked (422)
+    // so they can transfer ownership or delete the salon first — cascading the
+    // salon deletion automatically is too destructive.
+    public function destroy(Request $request): JsonResponse
+    {
+        /** @var User $user */
+        $user = $request->user();
+
+        // --- Guard: owner with active salon ----------------------------------
+        $isOwner = CompanyUser::where('user_id', $user->id)
+            ->where('role', CompanyRole::Owner->value)
+            ->where('is_active', true)
+            ->exists();
+
+        if ($isOwner) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tu dois transférer la propriété du salon ou le supprimer avant de pouvoir supprimer ton compte.',
+                'code'    => 'owner_has_active_salon',
+            ], 422);
+        }
+
+        DB::transaction(function () use ($user): void {
+            // 1. Cancel future appointments and notify each salon.
+            $futureAppointments = Appointment::where('user_id', $user->id)
+                ->whereIn('status', [
+                    AppointmentStatus::Pending->value,
+                    AppointmentStatus::Confirmed->value,
+                ])
+                ->where('date', '>=', now()->toDateString())
+                ->with(['service', 'user', 'company'])
+                ->get();
+
+            foreach ($futureAppointments as $appt) {
+                $appt->update([
+                    'status'                 => AppointmentStatus::Cancelled,
+                    'cancelled_by_client_at' => now(),
+                    'cancellation_reason'    => 'account_deleted',
+                ]);
+                SendAppointmentCancelledByClientNotification::dispatch(
+                    $appt->fresh(['service', 'user', 'company'])
+                );
+            }
+
+            // 2. Detach employee pivots (hard delete from company_user pivot).
+            CompanyUser::where('user_id', $user->id)
+                ->where('role', CompanyRole::Employee->value)
+                ->delete();
+
+            // 3. Revoke all Sanctum tokens.
+            $user->tokens()->delete();
+
+            // 4. Revoke all refresh tokens.
+            $user->refreshTokens()->update(['revoked_at' => now()]);
+
+            // 5. Remove FCM device tokens.
+            $user->devices()->delete();
+
+            // 6. Delete avatar files from storage.
+            if ($user->profile_image_url) {
+                $files = Storage::disk('public')->allFiles("avatars/{$user->id}");
+                foreach ($files as $file) {
+                    Storage::disk('public')->delete($file);
+                }
+            }
+
+            // 7. Anonymise PII before soft-delete so the row carries no personal data.
+            $user->forceFill([
+                'first_name'        => 'Utilisateur',
+                'last_name'         => 'supprimé',
+                'email'             => "deleted-{$user->id}@termini-im.com",
+                'phone'             => null,
+                'profile_image_url' => null,
+                'password'          => Hash::make(Str::random(64)),
+            ])->save();
+
+            // 8. Soft-delete (sets deleted_at).
+            $user->delete();
+        });
+
+        return response()->json(null, 204);
+    }
+
     /**
      * @return array{0: string, 1: string}
      */
     private function issueTokenPair(User $user): array
     {
+        // Short-lived access token — the Flutter Dio interceptor auto-refreshes
+        // via /auth/refresh on 401, so the user never sees a re-login as long
+        // as the 90-day refresh token is still valid.
         $accessTokenModel = $user->createToken(
             'access_token',
             ['*'],
-            now()->addHours(24) // TODO: reduce to 15 minutes in production
+            now()->addMinutes(15),
         );
         $plainAccessToken = $accessTokenModel->plainTextToken;
 

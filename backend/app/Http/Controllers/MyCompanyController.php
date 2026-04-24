@@ -9,8 +9,8 @@ use App\Enums\DayOfWeek;
 use App\Enums\UserRole;
 use App\Enums\AppointmentStatus;
 use App\Enums\BookingMode;
-use App\Http\Requests\MyCompany\CreateEmployeeRequest;
 use App\Http\Requests\MyCompany\InviteEmployeeRequest;
+use App\Http\Requests\MyCompany\SendInvitationRequest;
 use App\Http\Requests\MyCompany\StoreCategoryRequest;
 use App\Http\Requests\MyCompany\StoreCapacityOverrideRequest;
 use App\Http\Requests\MyCompany\StoreCompanyBreakRequest;
@@ -28,10 +28,17 @@ use App\Http\Requests\MyCompany\UpdateServiceRequest;
 use App\Http\Resources\CompanyBreakResource;
 use App\Http\Resources\CompanyCapacityOverrideResource;
 use App\Http\Resources\EmployeeResource;
+use App\Http\Resources\InvitationResource;
 use App\Http\Resources\MyCompanyResource;
 use App\Http\Resources\OpeningHourResource;
 use App\Http\Resources\OwnerAppointmentResource;
 use App\Http\Resources\ServiceCategoryResource;
+use App\Jobs\SendBookingConfirmationEmail;
+use App\Jobs\SendEmployeeInvitationEmail;
+use App\Jobs\SendEmployeeInvitationLinkEmail;
+use App\Jobs\SendEmployeeInvitationPush;
+use App\Jobs\SendWalkInCreatedNotification;
+use App\Enums\InvitationStatus;
 use App\Models\Appointment;
 use App\Models\Company;
 use Carbon\Carbon;
@@ -42,6 +49,7 @@ use App\Models\CompanyOpeningHour;
 use App\Models\CompanyUser;
 use App\Models\EmployeeBreak;
 use App\Models\EmployeeDayOff;
+use App\Models\EmployeeInvitation;
 use App\Models\Service;
 use App\Models\ServiceCategory;
 use App\Models\User;
@@ -224,7 +232,11 @@ class MyCompanyController extends Controller
 
         Cache::forget("company:detail:{$company->id}");
 
-        return new MyCompanyResource($company->fresh('openingHours'));
+        $fresh = Company::select('*', DB::raw('ST_X(location) AS longitude'), DB::raw('ST_Y(location) AS latitude'))
+            ->find($company->id);
+        $fresh->load('openingHours');
+
+        return new MyCompanyResource($fresh);
     }
 
     // =========================================================================
@@ -443,8 +455,12 @@ class MyCompanyController extends Controller
 
     /**
      * GET /api/my-company/employees
+     *
+     * Returns a merged list of active members (kind=member) and pending
+     * invitations (kind=invitation). Pass ?include=history to also include
+     * refused/revoked/expired invitations.
      */
-    public function listEmployees(): AnonymousResourceCollection|JsonResponse
+    public function listEmployees(Request $request): JsonResponse
     {
         $company = $this->resolveOwnedCompany();
 
@@ -452,41 +468,54 @@ class MyCompanyController extends Controller
             return $company;
         }
 
-        $employees = CompanyUser::where('company_id', $company->id)
+        $includeHistory = $request->query('include') === 'history';
+
+        $members = CompanyUser::where('company_id', $company->id)
             ->with(['user', 'services'])
             ->get();
 
-        return EmployeeResource::collection($employees);
+        $invitationsQuery = EmployeeInvitation::where('company_id', $company->id);
+        if (! $includeHistory) {
+            $invitationsQuery->where('status', InvitationStatus::Pending);
+        }
+        $invitations = $invitationsQuery->orderByDesc('created_at')->get();
+
+        return response()->json([
+            'data' => array_merge(
+                EmployeeResource::collection($members)->resolve(),
+                InvitationResource::collection($invitations)->resolve(),
+            ),
+        ]);
     }
 
     /**
      * POST /api/my-company/employees/invite
      *
-     * Invite an existing user by email. If not found, return a 422 suggesting
-     * the owner create an account for them instead.
+     * Invite anyone by email. Unknown emails receive an invitation link;
+     * existing users receive a push notification (FCM — Phase 5.3).
      */
-    public function inviteEmployee(InviteEmployeeRequest $request): JsonResponse
+    public function inviteEmployee(SendInvitationRequest $request): JsonResponse
     {
         $company = $this->resolveOwnedCompany();
-
         if ($company instanceof JsonResponse) {
             return $company;
         }
 
-        $user = User::where('email', $request->validated('email'))->first();
+        $email = $request->validated('email');
 
-        if (! $user) {
+        /** @var User $owner */
+        $owner = auth()->user();
+
+        if (strtolower((string) $owner->email) === $email) {
             return response()->json([
                 'success' => false,
-                'message' => 'No account found with this email address. Use the "create employee" endpoint to create a new account.',
+                'message' => 'You cannot invite yourself.',
             ], 422);
         }
 
-        // Prevent duplicate membership
-        $alreadyMember = CompanyUser::where('company_id', $company->id)
-            ->where('user_id', $user->id)
+        $alreadyMember = User::where('email', $email)
+            ->whereHas('companies', fn ($q) => $q->where('company_id', $company->id))
             ->exists();
-
         if ($alreadyMember) {
             return response()->json([
                 'success' => false,
@@ -494,21 +523,120 @@ class MyCompanyController extends Controller
             ], 422);
         }
 
-        $pivot = CompanyUser::create([
-            'company_id'  => $company->id,
-            'user_id'     => $user->id,
-            'role'        => $request->validated('role', CompanyRole::Employee->value),
-            'specialties' => $request->validated('specialties', []),
-            'is_active'   => true,
+        [$invitation, $plaintextToken] = DB::transaction(function () use ($request, $company, $owner, $email) {
+            $existing = EmployeeInvitation::where('company_id', $company->id)
+                ->where('email', $email)
+                ->where('status', InvitationStatus::Pending)
+                ->lockForUpdate()
+                ->first();
+
+            $plaintextToken = bin2hex(random_bytes(32));
+            $tokenHash      = hash('sha256', $plaintextToken);
+
+            if ($existing) {
+                $existing->update([
+                    'first_name'  => $request->validated('first_name', $existing->first_name),
+                    'last_name'   => $request->validated('last_name', $existing->last_name),
+                    'specialties' => $request->validated('specialties', $existing->specialties),
+                    'token_hash'  => $tokenHash,
+                    'expires_at'  => now()->addDays(7),
+                ]);
+                return [$existing->fresh(), $plaintextToken];
+            }
+
+            $invitation = EmployeeInvitation::create([
+                'company_id'         => $company->id,
+                'invited_by_user_id' => $owner->id,
+                'email'              => $email,
+                'first_name'         => $request->validated('first_name'),
+                'last_name'          => $request->validated('last_name'),
+                'specialties'        => $request->validated('specialties', []),
+                'role'               => $request->validated('role', CompanyRole::Employee->value),
+                'token_hash'         => $tokenHash,
+                'status'             => InvitationStatus::Pending,
+                'expires_at'         => now()->addDays(7),
+            ]);
+
+            return [$invitation, $plaintextToken];
+        });
+
+        $invitedUser = User::where('email', $email)->first();
+        if ($invitedUser) {
+            SendEmployeeInvitationPush::dispatch($invitation, $invitedUser);
+        } else {
+            SendEmployeeInvitationLinkEmail::dispatch($invitation, $company, $owner, $plaintextToken);
+        }
+
+        return (new InvitationResource($invitation))
+            ->response()
+            ->setStatusCode(201);
+    }
+
+    /**
+     * POST /api/my-company/employees/invitations/{id}/resend
+     */
+    public function resendInvitation(int $id): JsonResponse
+    {
+        $company = $this->resolveOwnedCompany();
+        if ($company instanceof JsonResponse) {
+            return $company;
+        }
+
+        $invitation = EmployeeInvitation::where('id', $id)
+            ->where('company_id', $company->id)
+            ->where('status', InvitationStatus::Pending)
+            ->first();
+
+        if (! $invitation) {
+            return $this->notFound('invitation');
+        }
+
+        $plaintextToken = bin2hex(random_bytes(32));
+        $invitation->update([
+            'token_hash' => hash('sha256', $plaintextToken),
+            'expires_at' => now()->addDays(7),
         ]);
 
-        $pivot->load('user');
+        /** @var User $owner */
+        $owner = auth()->user();
+        $invitedUser = User::where('email', $invitation->email)->first();
+        if ($invitedUser) {
+            SendEmployeeInvitationPush::dispatch($invitation, $invitedUser);
+        } else {
+            SendEmployeeInvitationLinkEmail::dispatch($invitation, $company, $owner, $plaintextToken);
+        }
 
         return response()->json([
             'success' => true,
-            'message' => 'Employee added.',
-            'data'    => new EmployeeResource($pivot),
-        ], 201);
+            'data'    => new InvitationResource($invitation),
+        ]);
+    }
+
+    /**
+     * DELETE /api/my-company/employees/invitations/{id}
+     */
+    public function revokeInvitation(int $id): JsonResponse
+    {
+        $company = $this->resolveOwnedCompany();
+        if ($company instanceof JsonResponse) {
+            return $company;
+        }
+
+        $invitation = EmployeeInvitation::where('id', $id)
+            ->where('company_id', $company->id)
+            ->where('status', InvitationStatus::Pending)
+            ->first();
+
+        if (! $invitation) {
+            return $this->notFound('invitation');
+        }
+
+        $invitation->update(['status' => InvitationStatus::Revoked]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Invitation revoked.',
+        ]);
     }
 
     /**
@@ -516,41 +644,6 @@ class MyCompanyController extends Controller
      *
      * Create a new User account and add them as an employee in one transaction.
      */
-    public function createEmployee(CreateEmployeeRequest $request): JsonResponse
-    {
-        $company = $this->resolveOwnedCompany();
-
-        if ($company instanceof JsonResponse) {
-            return $company;
-        }
-
-        $pivot = DB::transaction(function () use ($request, $company): CompanyUser {
-            $user = User::create([
-                'first_name' => $request->validated('first_name'),
-                'last_name'  => $request->validated('last_name'),
-                'email'      => $request->validated('email'),
-                'phone'      => $request->validated('phone'),
-                'password'   => Hash::make($request->validated('password')),
-                'role'       => UserRole::User,
-            ]);
-
-            return CompanyUser::create([
-                'company_id'  => $company->id,
-                'user_id'     => $user->id,
-                'role'        => $request->validated('role', CompanyRole::Employee->value),
-                'specialties' => $request->validated('specialties', []),
-                'is_active'   => true,
-            ]);
-        });
-
-        $pivot->load('user');
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Employee account created and added to your company.',
-            'data'    => new EmployeeResource($pivot),
-        ], 201);
-    }
 
     /**
      * PUT /api/my-company/employees/{id}
@@ -735,16 +828,31 @@ class MyCompanyController extends Controller
             return $company;
         }
 
-        $company->update(['booking_mode' => $request->validated('booking_mode')]);
+        $updateData = [];
+
+        if ($request->has('booking_mode')) {
+            $updateData['booking_mode'] = $request->validated('booking_mode');
+        }
+
+        if ($request->has('capacity_auto_approve')) {
+            $updateData['capacity_auto_approve'] = $request->validated('capacity_auto_approve');
+        }
+
+        if (! empty($updateData)) {
+            $company->update($updateData);
+        }
 
         Cache::forget("company:detail:{$company->id}");
 
+        $fresh = $company->fresh();
+
         return response()->json([
-            'success'     => true,
-            'message'     => 'Booking settings updated.',
-            'bookingMode' => $company->fresh()->booking_mode instanceof \BackedEnum
-                ? $company->fresh()->booking_mode->value
-                : $company->fresh()->booking_mode,
+            'success'             => true,
+            'message'             => 'Booking settings updated.',
+            'bookingMode'         => $fresh->booking_mode instanceof \BackedEnum
+                ? $fresh->booking_mode->value
+                : $fresh->booking_mode,
+            'capacityAutoApprove' => (bool) ($fresh->capacity_auto_approve ?? false),
         ]);
     }
 
@@ -1249,6 +1357,13 @@ class MyCompanyController extends Controller
 
         Cache::forget("company:availability:{$company->id}:{$dateStr}");
 
+        // Dispatch booking confirmation email when owner manually confirms
+        // a pending appointment (capacity mode with manual approval).
+        if ($newStatus === AppointmentStatus::Confirmed
+            && $currentStatus === AppointmentStatus::Pending) {
+            SendBookingConfirmationEmail::dispatch($appointment->fresh());
+        }
+
         return response()->json([
             'success' => true,
             'message' => 'Appointment status updated.',
@@ -1348,6 +1463,11 @@ class MyCompanyController extends Controller
         Cache::forget("company:availability:{$company->id}:{$date}");
 
         $appointment->load(['service', 'companyUser.user', 'user']);
+
+        // C9 — Notifie l'owner si c'est un employé (pas l'owner lui-même) qui crée le walk-in.
+        if (! $access['isOwner']) {
+            SendWalkInCreatedNotification::dispatch($appointment);
+        }
 
         // Inject viewer context so the returned resource carries correct
         // can.* flags — otherwise the front would see cancel=false on the
