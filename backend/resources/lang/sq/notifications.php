@@ -34,4 +34,33 @@ return [
     // Anulim nga salloni (marrësi: klienti)
     'appointment_cancelled_by_owner_title' => 'Takimi u anulua',
     'appointment_cancelled_by_owner_body'  => ':company_name anuloi takimin tuaj të :service_name në :time.',
+
+    // C8 — Vlerësim i ri (marrësi: pronari)
+    'review_new_positive_title' => 'Vlerësim i ri — :rating yje ⭐',
+    'review_new_neutral_title'  => 'Koment i ri nga :client_name',
+    'review_new_body'           => ':comment',
+
+    // C9 — Walk-in i krijuar nga punonjësi (marrësi: pronari)
+    'walk_in_created_title' => 'Walk-in te salloni yt',
+    'walk_in_created_body'  => ':employee_name shtoi :client_name në :time.',
+
+    // C10 — RDV zhvendosur nga salloni (marrësi: klienti)
+    'appointment_rescheduled_by_owner_title' => 'Ndryshim në terminin tënd',
+    'appointment_rescheduled_by_owner_body'  => 'Zhvendosur nga :old_time në :new_time. Konfirmo ose anulo.',
+
+    // C11 — RDV zhvendosur nga klienti (marrësi: pronari/punonjësi)
+    'appointment_rescheduled_by_client_title' => 'Ndryshim — :client_name',
+    'appointment_rescheduled_by_client_body'  => 'Zhvendosur në :new_date :new_time. Konfirmuar automatikisht.',
+
+    // C12 — Kërkesë vlerësimi J+1 (marrësi: klienti)
+    'review_request_title' => 'Si shkoi te :salon_name?',
+    'review_request_body'  => 'Një vlerësim në 10 sek ndihmon të tjerët të zgjedhin mirë.',
+
+    // C13 — Përgjigje support (marrësi: kërkuesi)
+    'support_reply_title' => 'Përgjigje nga ekipi Termini im',
+    'support_reply_body'  => ':message',
+
+    // C14 — Kapaciteti i plotë (marrësi: pronari)
+    'capacity_full_title' => 'Plot për :date',
+    'capacity_full_body'  => 'Të gjitha vendet janë rezervuar. A duhet të shtosh kapacitet?',
 ];

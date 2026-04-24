@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Jobs;
 
+use App\Jobs\SendReviewRequestNotification;
 use App\Models\Appointment;
 use App\Models\AppointmentNotificationSent;
 use App\Services\FcmService;
+use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -55,5 +57,16 @@ class SendAppointmentConfirmedNotification implements ShouldQueue
         );
 
         AppointmentNotificationSent::markSent($appt->id, $client->id, $type);
+
+        // C12 — Planifie la demande d'avis pour J+1 à 18h (Europe/Tirane par défaut).
+        // Le job vérifie lui-même au moment de l'exécution si le RDV est toujours actif.
+        $timezone = 'Europe/Tirane';
+        $reviewRequestAt = Carbon::now($timezone)
+            ->addDay()
+            ->setHour(18)
+            ->setMinute(0)
+            ->setSecond(0);
+
+        SendReviewRequestNotification::dispatch($appt)->delay($reviewRequestAt);
     }
 }
