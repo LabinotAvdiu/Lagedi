@@ -63,4 +63,16 @@ return [
     // C14 — Capacité atteinte (destinataire : owner)
     'capacity_full_title' => 'Complet pour le :date',
     'capacity_full_body'  => 'Tous les créneaux sont pris. Faut-il augmenter la capacité ?',
+
+    // C15 — Invitation employé reçue (destinataire : utilisateur invité)
+    'invitation_received_title' => 'Nouvelle invitation',
+    'invitation_received_body'  => ':company t\'invite à rejoindre l\'équipe',
+
+    // C16 — Décision invitation (destinataire : owner qui a invité)
+    'invitation_accepted_title' => 'Invitation acceptée',
+    'invitation_accepted_body'  => ':email a accepté ton invitation',
+    'invitation_refused_title'  => 'Invitation refusée',
+    'invitation_refused_body'   => ':email a refusé ton invitation',
+    'invitation_expired_title'  => 'Invitation expirée',
+    'invitation_expired_body'   => 'L\'invitation pour :email a expiré',
 ];

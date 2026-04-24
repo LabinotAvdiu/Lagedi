@@ -63,4 +63,16 @@ return [
     // C14 — Kapaciteti i plotë (marrësi: pronari)
     'capacity_full_title' => 'Plot për :date',
     'capacity_full_body'  => 'Të gjitha vendet janë rezervuar. A duhet të shtosh kapacitet?',
+
+    // C15 — Ftesë punonjësi marrë (marrësi: përdoruesi i ftuar)
+    'invitation_received_title' => 'Ftesë e re',
+    'invitation_received_body'  => ':company të fton t\'i bashkohesh ekipit',
+
+    // C16 — Vendim ftese (marrësi: pronari që ftoi)
+    'invitation_accepted_title' => 'Ftesa u pranua',
+    'invitation_accepted_body'  => ':email pranoi ftesën tënde',
+    'invitation_refused_title'  => 'Ftesa u refuzua',
+    'invitation_refused_body'   => ':email refuzoi ftesën tënde',
+    'invitation_expired_title'  => 'Ftesa skadoi',
+    'invitation_expired_body'   => 'Ftesa për :email ka skaduar',
 ];

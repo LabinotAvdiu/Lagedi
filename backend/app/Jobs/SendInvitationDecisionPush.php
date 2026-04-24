@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Jobs;
 
 use App\Models\EmployeeInvitation;
+use App\Services\FcmService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -21,8 +22,28 @@ class SendInvitationDecisionPush implements ShouldQueue
     ) {
     }
 
-    public function handle(): void
+    public function handle(FcmService $fcm): void
     {
-        // FCM dispatch — implemented in Phase 5.3.
+        $invitation = $this->invitation->loadMissing('invitedBy');
+        $owner = $invitation->invitedBy;
+
+        if (! $owner) {
+            return;
+        }
+
+        $fcm->sendToUser(
+            user:       $owner,
+            type:       "invitation.{$this->decision}",
+            data:       [
+                'type'         => "invitation.{$this->decision}",
+                'invitationId' => (string) $invitation->id,
+                'companyId'    => (string) $invitation->company_id,
+            ],
+            titleKey:   "invitation_{$this->decision}_title",
+            bodyKey:    "invitation_{$this->decision}_body",
+            bodyParams: [
+                'email' => $invitation->email,
+            ],
+        );
     }
 }

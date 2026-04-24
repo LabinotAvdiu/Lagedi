@@ -63,4 +63,16 @@ return [
     // C14 — Capacity full (recipient: owner)
     'capacity_full_title' => 'Full for :date',
     'capacity_full_body'  => 'All slots are booked. Do you need to increase capacity?',
+
+    // C15 — Employee invitation received (recipient: invited user)
+    'invitation_received_title' => 'New invitation',
+    'invitation_received_body'  => ':company invites you to join the team',
+
+    // C16 — Invitation decision (recipient: owner who invited)
+    'invitation_accepted_title' => 'Invitation accepted',
+    'invitation_accepted_body'  => ':email accepted your invitation',
+    'invitation_refused_title'  => 'Invitation declined',
+    'invitation_refused_body'   => ':email declined your invitation',
+    'invitation_expired_title'  => 'Invitation expired',
+    'invitation_expired_body'   => 'The invitation for :email has expired',
 ];

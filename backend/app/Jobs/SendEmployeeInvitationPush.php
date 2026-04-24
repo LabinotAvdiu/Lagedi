@@ -6,6 +6,7 @@ namespace App\Jobs;
 
 use App\Models\EmployeeInvitation;
 use App\Models\User;
+use App\Services\FcmService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -22,8 +23,23 @@ class SendEmployeeInvitationPush implements ShouldQueue
     ) {
     }
 
-    public function handle(): void
+    public function handle(FcmService $fcm): void
     {
-        // FCM dispatch — implemented in Phase 5.3.
+        $invitation = $this->invitation->loadMissing('company');
+
+        $fcm->sendToUser(
+            user:       $this->invitedUser,
+            type:       'invitation.received',
+            data:       [
+                'type'         => 'invitation.received',
+                'invitationId' => (string) $invitation->id,
+                'companyId'    => (string) $invitation->company_id,
+            ],
+            titleKey:   'invitation_received_title',
+            bodyKey:    'invitation_received_body',
+            bodyParams: [
+                'company' => $invitation->company?->name ?? '',
+            ],
+        );
     }
 }

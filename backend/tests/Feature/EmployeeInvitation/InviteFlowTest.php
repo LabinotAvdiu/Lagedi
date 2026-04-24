@@ -7,12 +7,14 @@ namespace Tests\Feature\EmployeeInvitation;
 use App\Enums\CompanyRole;
 use App\Enums\InvitationStatus;
 use App\Enums\UserRole;
+use App\Jobs\SendEmployeeInvitationPush;
 use App\Mail\EmployeeInvitationLinkMail;
 use App\Models\Company;
 use App\Models\CompanyUser;
 use App\Models\EmployeeInvitation;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Mail;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -209,5 +211,19 @@ class InviteFlowTest extends TestCase
         $response = $this->getJson('/api/my-company/employees');
         $emails = collect($response->json('data'))->pluck('email')->filter()->all();
         $this->assertNotContains('r@example.com', $emails);
+    }
+
+    public function test_invite_existing_user_dispatches_push_job(): void
+    {
+        Bus::fake();
+
+        [$owner, $company] = $this->makeOwnerWithCompany();
+        Sanctum::actingAs($owner);
+
+        User::factory()->create(['email' => 'bob@example.com']);
+
+        $this->postJson('/api/my-company/employees/invite', ['email' => 'bob@example.com']);
+
+        Bus::assertDispatched(SendEmployeeInvitationPush::class);
     }
 }
