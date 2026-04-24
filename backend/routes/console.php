@@ -25,3 +25,8 @@ Schedule::command('appointments:send-evening-reminders')
     ->dailyAt('20:00')
     ->withoutOverlapping();
 
+// Expiration nocturne des invitations en attente — tous les jours à 03h00.
+Schedule::command(\App\Console\Commands\ExpireInvitations::class)
+    ->dailyAt('03:00')
+    ->withoutOverlapping();
+
