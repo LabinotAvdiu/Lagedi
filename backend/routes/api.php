@@ -174,6 +174,13 @@ Route::middleware('auth:sanctum')->prefix('me')->group(function () {
     Route::delete('/devices',                [UserDeviceController::class, 'destroy']);
     Route::post('/avatar',                   [UserAvatarController::class, 'store']);
     Route::delete('/avatar',                 [UserAvatarController::class, 'destroy']);
+
+    // Employee invitations inbox — me-side
+    Route::get('/invitations', [EmployeeInvitationController::class, 'mine']);
+    Route::post('/invitations/{id}/accept', [EmployeeInvitationController::class, 'accept'])
+        ->whereNumber('id');
+    Route::post('/invitations/{id}/refuse', [EmployeeInvitationController::class, 'refuse'])
+        ->whereNumber('id');
 });
 
 /*
