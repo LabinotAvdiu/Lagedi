@@ -7,6 +7,7 @@ namespace Tests\Feature\EmployeeInvitation;
 use App\Enums\CompanyRole;
 use App\Enums\InvitationStatus;
 use App\Enums\UserRole;
+use App\Jobs\SendInvitationDecisionPush;
 use App\Models\Company;
 use App\Models\CompanyUser;
 use App\Models\EmployeeInvitation;
@@ -31,20 +32,20 @@ class ExpireCommandTest extends TestCase
         ]);
 
         $expired = EmployeeInvitation::create([
-            'company_id'         => $company->id,
+            'company_id' => $company->id,
             'invited_by_user_id' => $owner->id,
-            'email'              => 'a@x.com', 'specialties' => [],
-            'token_hash'         => str_repeat('a', 64),
-            'status'             => InvitationStatus::Pending,
-            'expires_at'         => now()->subHour(),
+            'email' => 'a@x.com', 'specialties' => [],
+            'token_hash' => str_repeat('a', 64),
+            'status' => InvitationStatus::Pending,
+            'expires_at' => now()->subHour(),
         ]);
         $stillValid = EmployeeInvitation::create([
-            'company_id'         => $company->id,
+            'company_id' => $company->id,
             'invited_by_user_id' => $owner->id,
-            'email'              => 'b@x.com', 'specialties' => [],
-            'token_hash'         => str_repeat('b', 64),
-            'status'             => InvitationStatus::Pending,
-            'expires_at'         => now()->addDay(),
+            'email' => 'b@x.com', 'specialties' => [],
+            'token_hash' => str_repeat('b', 64),
+            'status' => InvitationStatus::Pending,
+            'expires_at' => now()->addDay(),
         ]);
 
         $this->artisan('invitations:expire')->assertSuccessful();
@@ -52,6 +53,6 @@ class ExpireCommandTest extends TestCase
         $this->assertEquals(InvitationStatus::Expired, $expired->fresh()->status);
         $this->assertEquals(InvitationStatus::Pending, $stillValid->fresh()->status);
 
-        Bus::assertDispatched(\App\Jobs\SendInvitationDecisionPush::class, 1);
+        Bus::assertDispatched(SendInvitationDecisionPush::class, 1);
     }
 }

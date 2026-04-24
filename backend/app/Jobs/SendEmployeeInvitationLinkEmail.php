@@ -24,21 +24,20 @@ class SendEmployeeInvitationLinkEmail implements ShouldQueue
         public readonly Company $company,
         public readonly User $owner,
         public readonly string $plaintextToken,
-    ) {
-    }
+    ) {}
 
     public function handle(): void
     {
-        $locale = \App\Models\User::where('email', $this->invitation->email)
+        $locale = User::where('email', $this->invitation->email)
             ->value('locale')
             ?? config('app.fallback_locale', 'fr');
 
         Mail::to($this->invitation->email)
             ->locale($locale)
             ->send(new EmployeeInvitationLinkMail(
-                invitation:     $this->invitation,
-                company:        $this->company,
-                owner:          $this->owner,
+                invitation: $this->invitation,
+                company: $this->company,
+                owner: $this->owner,
                 plaintextToken: $this->plaintextToken,
             ));
     }

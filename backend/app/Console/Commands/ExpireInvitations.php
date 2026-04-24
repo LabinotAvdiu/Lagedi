@@ -12,6 +12,7 @@ use Illuminate\Console\Command;
 class ExpireInvitations extends Command
 {
     protected $signature = 'invitations:expire';
+
     protected $description = 'Mark pending employee invitations as expired and notify owners.';
 
     public function handle(): int
@@ -26,6 +27,7 @@ class ExpireInvitations extends Command
         }
 
         $this->info("Expired {$expired->count()} invitations.");
+
         return self::SUCCESS;
     }
 }

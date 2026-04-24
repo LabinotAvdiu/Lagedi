@@ -29,10 +29,11 @@ class InviteFlowTest extends TestCase
         $company = Company::factory()->create();
         CompanyUser::create([
             'company_id' => $company->id,
-            'user_id'    => $owner->id,
-            'role'       => CompanyRole::Owner,
-            'is_active'  => true,
+            'user_id' => $owner->id,
+            'role' => CompanyRole::Owner,
+            'is_active' => true,
         ]);
+
         return [$owner, $company];
     }
 
@@ -44,9 +45,9 @@ class InviteFlowTest extends TestCase
         Sanctum::actingAs($owner);
 
         $response = $this->postJson('/api/my-company/employees/invite', [
-            'email'      => 'alice@example.com',
+            'email' => 'alice@example.com',
             'first_name' => 'Alice',
-            'last_name'  => 'Martin',
+            'last_name' => 'Martin',
         ]);
 
         $response->assertStatus(201)
@@ -57,8 +58,8 @@ class InviteFlowTest extends TestCase
 
         $this->assertDatabaseHas('employee_invitations', [
             'company_id' => $company->id,
-            'email'      => 'alice@example.com',
-            'status'     => 'pending',
+            'email' => 'alice@example.com',
+            'status' => 'pending',
         ]);
 
         Mail::assertSent(EmployeeInvitationLinkMail::class);
@@ -76,7 +77,7 @@ class InviteFlowTest extends TestCase
         $this->postJson('/api/my-company/employees/invite', [
             'email' => 'bob@example.com',
         ])->assertStatus(201)
-          ->assertJsonPath('data.hasAccount', true);
+            ->assertJsonPath('data.hasAccount', true);
 
         Mail::assertNothingSent();
         // Push job dispatch test in Phase 5 once FCM is wired.
@@ -127,9 +128,9 @@ class InviteFlowTest extends TestCase
         $employee = User::factory()->create(['email' => 'emp@example.com']);
         CompanyUser::create([
             'company_id' => $company->id,
-            'user_id'    => $employee->id,
-            'role'       => CompanyRole::Employee,
-            'is_active'  => true,
+            'user_id' => $employee->id,
+            'role' => CompanyRole::Employee,
+            'is_active' => true,
         ]);
 
         $this->postJson('/api/my-company/employees/invite', [
@@ -179,9 +180,9 @@ class InviteFlowTest extends TestCase
         $employee = User::factory()->create();
         CompanyUser::create([
             'company_id' => $company->id,
-            'user_id'    => $employee->id,
-            'role'       => CompanyRole::Employee,
-            'is_active'  => true,
+            'user_id' => $employee->id,
+            'role' => CompanyRole::Employee,
+            'is_active' => true,
         ]);
         $this->postJson('/api/my-company/employees/invite', ['email' => 'alice@example.com']);
 
@@ -199,13 +200,13 @@ class InviteFlowTest extends TestCase
         Sanctum::actingAs($owner);
 
         EmployeeInvitation::create([
-            'company_id'         => $company->id,
+            'company_id' => $company->id,
             'invited_by_user_id' => $owner->id,
-            'email'              => 'r@example.com',
-            'specialties'        => [],
-            'token_hash'         => str_repeat('a', 64),
-            'status'             => InvitationStatus::Refused,
-            'expires_at'         => now()->subDay(),
+            'email' => 'r@example.com',
+            'specialties' => [],
+            'token_hash' => str_repeat('a', 64),
+            'status' => InvitationStatus::Refused,
+            'expires_at' => now()->subDay(),
         ]);
 
         $response = $this->getJson('/api/my-company/employees');

@@ -20,23 +20,22 @@ class SendEmployeeInvitationPush implements ShouldQueue
     public function __construct(
         public readonly EmployeeInvitation $invitation,
         public readonly User $invitedUser,
-    ) {
-    }
+    ) {}
 
     public function handle(FcmService $fcm): void
     {
         $invitation = $this->invitation->loadMissing('company');
 
         $fcm->sendToUser(
-            user:       $this->invitedUser,
-            type:       'invitation.received',
-            data:       [
-                'type'         => 'invitation.received',
+            user: $this->invitedUser,
+            type: 'invitation.received',
+            data: [
+                'type' => 'invitation.received',
                 'invitationId' => (string) $invitation->id,
-                'companyId'    => (string) $invitation->company_id,
+                'companyId' => (string) $invitation->company_id,
             ],
-            titleKey:   'invitation_received_title',
-            bodyKey:    'invitation_received_body',
+            titleKey: 'invitation_received_title',
+            bodyKey: 'invitation_received_body',
             bodyParams: [
                 'company' => $invitation->company?->name ?? '',
             ],

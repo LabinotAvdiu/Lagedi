@@ -86,17 +86,17 @@ class EmployeeInvitationController extends Controller
             CompanyUser::firstOrCreate(
                 [
                     'company_id' => $invitation->company_id,
-                    'user_id'    => $userId,
+                    'user_id' => $userId,
                 ],
                 [
-                    'role'        => $invitation->role,
+                    'role' => $invitation->role,
                     'specialties' => $invitation->specialties ?? [],
-                    'is_active'   => true,
+                    'is_active' => true,
                 ],
             );
             $invitation->update([
-                'status'            => InvitationStatus::Accepted,
-                'accepted_at'       => now(),
+                'status' => InvitationStatus::Accepted,
+                'accepted_at' => now(),
                 'resulting_user_id' => $userId,
             ]);
         });
@@ -123,7 +123,7 @@ class EmployeeInvitationController extends Controller
         }
 
         $invitation->update([
-            'status'     => InvitationStatus::Refused,
+            'status' => InvitationStatus::Refused,
             'refused_at' => now(),
         ]);
 

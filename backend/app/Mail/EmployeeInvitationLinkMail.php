@@ -22,8 +22,7 @@ class EmployeeInvitationLinkMail extends Mailable
         public readonly Company $company,
         public readonly User $owner,
         public readonly string $plaintextToken,
-    ) {
-    }
+    ) {}
 
     public function envelope(): Envelope
     {
@@ -36,11 +35,11 @@ class EmployeeInvitationLinkMail extends Mailable
             markdown: 'emails.employee-invitation-link',
             with: [
                 'companyName' => $this->company->name,
-                'ownerName'   => trim(($this->owner->first_name ?? '') . ' ' . ($this->owner->last_name ?? '')) ?: 'Termini im',
-                'firstName'   => $this->invitation->first_name,
-                'token'       => $this->plaintextToken,
-                'expiresAt'   => $this->invitation->expires_at,
-                'deepLink'    => config('app.url') . '/invite/' . $this->plaintextToken,
+                'ownerName' => trim(($this->owner->first_name ?? '').' '.($this->owner->last_name ?? '')) ?: 'Termini im',
+                'firstName' => $this->invitation->first_name,
+                'token' => $this->plaintextToken,
+                'expiresAt' => $this->invitation->expires_at,
+                'deepLink' => config('app.url').'/invite/'.$this->plaintextToken,
             ],
         );
     }

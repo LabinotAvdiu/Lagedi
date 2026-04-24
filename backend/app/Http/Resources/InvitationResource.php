@@ -15,17 +15,17 @@ class InvitationResource extends JsonResource
         $hasAccount = User::where('email', $this->resource->email)->exists();
 
         return [
-            'id'          => $this->resource->id,
-            'kind'        => 'invitation',
-            'email'       => $this->resource->email,
-            'firstName'   => $this->resource->first_name,
-            'lastName'    => $this->resource->last_name,
+            'id' => $this->resource->id,
+            'kind' => 'invitation',
+            'email' => $this->resource->email,
+            'firstName' => $this->resource->first_name,
+            'lastName' => $this->resource->last_name,
             'specialties' => $this->resource->specialties ?? [],
-            'role'        => $this->resource->role,
-            'status'      => $this->resource->status->value,
-            'expiresAt'   => $this->resource->expires_at?->toIso8601String(),
-            'createdAt'   => $this->resource->created_at?->toIso8601String(),
-            'hasAccount'  => $hasAccount,
+            'role' => $this->resource->role,
+            'status' => $this->resource->status->value,
+            'expiresAt' => $this->resource->expires_at?->toIso8601String(),
+            'createdAt' => $this->resource->created_at?->toIso8601String(),
+            'hasAccount' => $hasAccount,
         ];
     }
 }

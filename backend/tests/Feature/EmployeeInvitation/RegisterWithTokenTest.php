@@ -24,22 +24,22 @@ class RegisterWithTokenTest extends TestCase
         $company = Company::factory()->create(['name' => 'Salon X']);
         CompanyUser::create([
             'company_id' => $company->id,
-            'user_id'    => $owner->id,
-            'role'       => CompanyRole::Owner,
-            'is_active'  => true,
+            'user_id' => $owner->id,
+            'role' => CompanyRole::Owner,
+            'is_active' => true,
         ]);
 
         $token = $token ?? bin2hex(random_bytes(32));
         $invitation = EmployeeInvitation::create([
-            'company_id'         => $company->id,
+            'company_id' => $company->id,
             'invited_by_user_id' => $owner->id,
-            'email'              => 'alice@example.com',
-            'first_name'         => 'Alice',
-            'last_name'          => 'Martin',
-            'specialties'        => [],
-            'token_hash'         => hash('sha256', $token),
-            'status'             => InvitationStatus::Pending,
-            'expires_at'         => now()->addDays(7),
+            'email' => 'alice@example.com',
+            'first_name' => 'Alice',
+            'last_name' => 'Martin',
+            'specialties' => [],
+            'token_hash' => hash('sha256', $token),
+            'status' => InvitationStatus::Pending,
+            'expires_at' => now()->addDays(7),
         ]);
 
         return [$owner, $company, $invitation, $token];
@@ -66,7 +66,7 @@ class RegisterWithTokenTest extends TestCase
 
     public function test_public_lookup_returns_404_for_unknown(): void
     {
-        $this->getJson('/api/invitations/' . str_repeat('z', 64))
+        $this->getJson('/api/invitations/'.str_repeat('z', 64))
             ->assertStatus(404);
     }
 
@@ -75,11 +75,11 @@ class RegisterWithTokenTest extends TestCase
         [$owner, $company, $invitation, $token] = $this->createPendingInvitation();
 
         $payload = [
-            'first_name'       => 'Alice',
-            'last_name'        => 'Martin',
-            'email'            => 'alice@example.com',
-            'password'         => 'P@ssw0rd1234',
-            'phone'            => '+38344000000',
+            'first_name' => 'Alice',
+            'last_name' => 'Martin',
+            'email' => 'alice@example.com',
+            'password' => 'P@ssw0rd1234',
+            'phone' => '+38344000000',
             'invitation_token' => $token,
         ];
 
@@ -92,8 +92,8 @@ class RegisterWithTokenTest extends TestCase
 
         $this->assertDatabaseHas('company_user', [
             'company_id' => $company->id,
-            'user_id'    => $user->id,
-            'is_active'  => true,
+            'user_id' => $user->id,
+            'is_active' => true,
         ]);
 
         $invitation->refresh();
@@ -106,11 +106,11 @@ class RegisterWithTokenTest extends TestCase
         [$owner, $company, $invitation, $token] = $this->createPendingInvitation();
 
         $this->postJson('/api/auth/register', [
-            'first_name'       => 'X',
-            'last_name'        => 'Y',
-            'email'            => 'someone-else@example.com',
-            'password'         => 'P@ssw0rd1234',
-            'phone'            => '+1',
+            'first_name' => 'X',
+            'last_name' => 'Y',
+            'email' => 'someone-else@example.com',
+            'password' => 'P@ssw0rd1234',
+            'phone' => '+1',
             'invitation_token' => $token,
         ])->assertStatus(422);
     }
@@ -121,11 +121,11 @@ class RegisterWithTokenTest extends TestCase
         $invitation->update(['expires_at' => now()->subDay()]);
 
         $this->postJson('/api/auth/register', [
-            'first_name'       => 'Alice',
-            'last_name'        => 'Martin',
-            'email'            => 'alice@example.com',
-            'password'         => 'P@ssw0rd1234',
-            'phone'            => '+1',
+            'first_name' => 'Alice',
+            'last_name' => 'Martin',
+            'email' => 'alice@example.com',
+            'password' => 'P@ssw0rd1234',
+            'phone' => '+1',
             'invitation_token' => $token,
         ])->assertStatus(410);
     }
@@ -135,11 +135,11 @@ class RegisterWithTokenTest extends TestCase
         [$owner, $company, $invitation, $token] = $this->createPendingInvitation();
 
         $response = $this->postJson('/api/auth/register', [
-            'first_name'            => 'Alice',
-            'last_name'             => 'Martin',
-            'email'                 => 'alice@example.com',
-            'password'              => 'P@ssw0rd1234',
-            'phone'                 => '+1',
+            'first_name' => 'Alice',
+            'last_name' => 'Martin',
+            'email' => 'alice@example.com',
+            'password' => 'P@ssw0rd1234',
+            'phone' => '+1',
         ]);
         $response->assertStatus(201);
 
@@ -152,7 +152,7 @@ class RegisterWithTokenTest extends TestCase
         // No pivot was created for Alice (the invitation hasn't been accepted yet).
         $this->assertDatabaseMissing('company_user', [
             'company_id' => $company->id,
-            'user_id'    => $alice->id,
+            'user_id' => $alice->id,
         ]);
     }
 }

@@ -15,18 +15,18 @@ class MyInvitationResource extends JsonResource
         $company = $this->resource->company;
 
         return [
-            'id'        => $this->resource->id,
-            'company'   => [
-                'id'      => (string) $company->id,
-                'name'    => $company->name,
-                'city'    => $company->city ?? null,
+            'id' => $this->resource->id,
+            'company' => [
+                'id' => (string) $company->id,
+                'name' => $company->name,
+                'city' => $company->city ?? null,
                 'logoUrl' => $company->profile_image_url ?? null,
             ],
             'invitedBy' => [
                 'firstName' => $owner->first_name,
-                'lastName'  => $owner->last_name,
+                'lastName' => $owner->last_name,
             ],
-            'role'      => $this->resource->role,
+            'role' => $this->resource->role,
             'expiresAt' => $this->resource->expires_at?->toIso8601String(),
         ];
     }

@@ -18,12 +18,12 @@ class SendInvitationRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'email'         => ['required', 'email', 'max:255'],
-            'first_name'    => ['nullable', 'string', 'max:100'],
-            'last_name'     => ['nullable', 'string', 'max:100'],
-            'specialties'   => ['nullable', 'array'],
+            'email' => ['required', 'email', 'max:255'],
+            'first_name' => ['nullable', 'string', 'max:100'],
+            'last_name' => ['nullable', 'string', 'max:100'],
+            'specialties' => ['nullable', 'array'],
             'specialties.*' => ['string', 'max:100'],
-            'role'          => ['nullable', new Enum(CompanyRole::class)],
+            'role' => ['nullable', new Enum(CompanyRole::class)],
         ];
     }
 

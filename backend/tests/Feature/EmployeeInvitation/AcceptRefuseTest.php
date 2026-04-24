@@ -25,19 +25,20 @@ class AcceptRefuseTest extends TestCase
         $company = Company::factory()->create();
         CompanyUser::create([
             'company_id' => $company->id,
-            'user_id'    => $owner->id,
-            'role'       => CompanyRole::Owner,
-            'is_active'  => true,
+            'user_id' => $owner->id,
+            'role' => CompanyRole::Owner,
+            'is_active' => true,
         ]);
         $invitation = EmployeeInvitation::create([
-            'company_id'         => $company->id,
+            'company_id' => $company->id,
             'invited_by_user_id' => $owner->id,
-            'email'              => $email,
-            'specialties'        => [],
-            'token_hash'         => str_repeat('a', 64),
-            'status'             => InvitationStatus::Pending,
-            'expires_at'         => now()->addDays(7),
+            'email' => $email,
+            'specialties' => [],
+            'token_hash' => str_repeat('a', 64),
+            'status' => InvitationStatus::Pending,
+            'expires_at' => now()->addDays(7),
         ]);
+
         return [$owner, $company, $invitation];
     }
 
@@ -67,8 +68,8 @@ class AcceptRefuseTest extends TestCase
 
         $this->assertDatabaseHas('company_user', [
             'company_id' => $company->id,
-            'user_id'    => $user->id,
-            'is_active'  => true,
+            'user_id' => $user->id,
+            'is_active' => true,
         ]);
 
         $this->assertEquals(InvitationStatus::Accepted, $invitation->fresh()->status);

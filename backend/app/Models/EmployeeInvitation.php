@@ -30,10 +30,10 @@ class EmployeeInvitation extends Model
     {
         return [
             'specialties' => 'array',
-            'status'      => InvitationStatus::class,
-            'expires_at'  => 'datetime',
+            'status' => InvitationStatus::class,
+            'expires_at' => 'datetime',
             'accepted_at' => 'datetime',
-            'refused_at'  => 'datetime',
+            'refused_at' => 'datetime',
         ];
     }
 
