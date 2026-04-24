@@ -205,12 +205,11 @@ Route::middleware('auth:sanctum')->prefix('my-company')->group(function () {
     Route::put('/services/{id}',  [MyCompanyController::class, 'updateService']);
     Route::delete('/services/{id}', [MyCompanyController::class, 'destroyService']);
 
-    // Employees — invite and create must come before /{id} to avoid route collision
+    // Employees — invite must come before /{id} to avoid route collision
     Route::get('/employees',               [MyCompanyController::class, 'listEmployees']);
     Route::post('/employees/invite',       [MyCompanyController::class, 'inviteEmployee']);
-    Route::post('/employees/create',       [MyCompanyController::class, 'createEmployee']);
-    Route::put('/employees/{id}',          [MyCompanyController::class, 'updateEmployee']);
-    Route::delete('/employees/{id}',       [MyCompanyController::class, 'destroyEmployee']);
+    Route::put('/employees/{id}',          [MyCompanyController::class, 'updateEmployee'])->whereNumber('id');
+    Route::delete('/employees/{id}',       [MyCompanyController::class, 'destroyEmployee'])->whereNumber('id');
 
     // Invitation management (resend / revoke)
     Route::post('/employees/invitations/{id}/resend', [MyCompanyController::class, 'resendInvitation'])

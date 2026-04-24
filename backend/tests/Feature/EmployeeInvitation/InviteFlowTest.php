@@ -226,4 +226,15 @@ class InviteFlowTest extends TestCase
 
         Bus::assertDispatched(SendEmployeeInvitationPush::class);
     }
+
+    public function test_legacy_create_employee_route_returns_404(): void
+    {
+        [$owner, $company] = $this->makeOwnerWithCompany();
+        Sanctum::actingAs($owner);
+
+        $this->postJson('/api/my-company/employees/create', [
+            'email' => 'x@x.com', 'first_name' => 'X', 'last_name' => 'Y',
+            'password' => 'P@ssw0rd1234',
+        ])->assertStatus(404);
+    }
 }

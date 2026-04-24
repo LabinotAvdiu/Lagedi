@@ -9,7 +9,6 @@ use App\Enums\DayOfWeek;
 use App\Enums\UserRole;
 use App\Enums\AppointmentStatus;
 use App\Enums\BookingMode;
-use App\Http\Requests\MyCompany\CreateEmployeeRequest;
 use App\Http\Requests\MyCompany\InviteEmployeeRequest;
 use App\Http\Requests\MyCompany\SendInvitationRequest;
 use App\Http\Requests\MyCompany\StoreCategoryRequest;
@@ -645,41 +644,6 @@ class MyCompanyController extends Controller
      *
      * Create a new User account and add them as an employee in one transaction.
      */
-    public function createEmployee(CreateEmployeeRequest $request): JsonResponse
-    {
-        $company = $this->resolveOwnedCompany();
-
-        if ($company instanceof JsonResponse) {
-            return $company;
-        }
-
-        $pivot = DB::transaction(function () use ($request, $company): CompanyUser {
-            $user = User::create([
-                'first_name' => $request->validated('first_name'),
-                'last_name'  => $request->validated('last_name'),
-                'email'      => $request->validated('email'),
-                'phone'      => $request->validated('phone'),
-                'password'   => Hash::make($request->validated('password')),
-                'role'       => UserRole::User,
-            ]);
-
-            return CompanyUser::create([
-                'company_id'  => $company->id,
-                'user_id'     => $user->id,
-                'role'        => $request->validated('role', CompanyRole::Employee->value),
-                'specialties' => $request->validated('specialties', []),
-                'is_active'   => true,
-            ]);
-        });
-
-        $pivot->load('user');
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Employee account created and added to your company.',
-            'data'    => new EmployeeResource($pivot),
-        ], 201);
-    }
 
     /**
      * PUT /api/my-company/employees/{id}
