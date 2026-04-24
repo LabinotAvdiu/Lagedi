@@ -129,4 +129,30 @@ class RegisterWithTokenTest extends TestCase
             'invitation_token' => $token,
         ])->assertStatus(410);
     }
+
+    public function test_normal_register_with_pending_invite_email_succeeds(): void
+    {
+        [$owner, $company, $invitation, $token] = $this->createPendingInvitation();
+
+        $response = $this->postJson('/api/auth/register', [
+            'first_name'            => 'Alice',
+            'last_name'             => 'Martin',
+            'email'                 => 'alice@example.com',
+            'password'              => 'P@ssw0rd1234',
+            'phone'                 => '+1',
+        ]);
+        $response->assertStatus(201);
+
+        $alice = User::where('email', 'alice@example.com')->first();
+        $this->assertNotNull($alice, 'alice should have been created');
+
+        // Invitation stays pending (no auto-acceptance without the token).
+        $this->assertEquals(InvitationStatus::Pending, $invitation->fresh()->status);
+
+        // No pivot was created for Alice (the invitation hasn't been accepted yet).
+        $this->assertDatabaseMissing('company_user', [
+            'company_id' => $company->id,
+            'user_id'    => $alice->id,
+        ]);
+    }
 }
