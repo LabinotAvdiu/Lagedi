@@ -60,6 +60,13 @@ class SendAppointmentConfirmedNotification implements ShouldQueue
 
         // C12 — Planifie la demande d'avis pour J+1 à 18h (Europe/Tirane par défaut).
         // Le job vérifie lui-même au moment de l'exécution si le RDV est toujours actif.
+        //
+        // On passe *un int de secondes* à ->delay() plutôt qu'un Carbon :
+        // avec PHP 8.4 + Carbon 2.x, la sérialisation d'un Carbon en queue
+        // sync récurse dans __debugInfo (UnknownGetterException lève une
+        // exception dont le message reformate via le même get(), infinite
+        // loop). Les secondes sont identiques en pratique et ne recursent pas.
+        // Ref : https://github.com/briannesbitt/Carbon/issues/2923
         $timezone = 'Europe/Tirane';
         $reviewRequestAt = Carbon::now($timezone)
             ->addDay()
@@ -67,6 +74,8 @@ class SendAppointmentConfirmedNotification implements ShouldQueue
             ->setMinute(0)
             ->setSecond(0);
 
-        SendReviewRequestNotification::dispatch($appt)->delay($reviewRequestAt);
+        // Fresh instance (no eager-loaded relations) so the serialized payload
+        // stays minimal — the child job reloads what it needs in handle().
+        SendReviewRequestNotification::dispatch($appt->fresh())->delay($reviewRequestAt);
     }
 }

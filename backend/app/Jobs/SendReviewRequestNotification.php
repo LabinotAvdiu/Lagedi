@@ -76,6 +76,16 @@ class SendReviewRequestNotification implements ShouldQueue
 
         // D21 — Quiet hours
         if (! NotificationGate::respectsQuietHours($client, NotificationType::REVIEW_REQUEST)) {
+            // On sync queue (tests, local dev) delays are ignored — re-dispatching
+            // would run the same handle() immediately and loop until memory/stack
+            // runs out. Skip silently and rely on the next scheduler tick instead.
+            if (config('queue.default') === 'sync') {
+                Log::info('[FCM] review_request skipped on sync queue during quiet hours', [
+                    'client_id' => $client->id,
+                ]);
+                return;
+            }
+
             $delay = NotificationGate::nextAllowedAt($client);
             Log::info('[FCM] review_request deferred — quiet hours', ['client_id' => $client->id, 'retry_at' => $delay]);
             self::dispatch($appt)->delay($delay);
