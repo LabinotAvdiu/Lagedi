@@ -6,6 +6,7 @@ use App\Http\Controllers\AppointmentCancelController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\EmployeeInvitationController;
 use App\Http\Controllers\ClientErrorController;
+use App\Http\Controllers\WaitlistController;
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\FavoriteController;
@@ -298,4 +299,17 @@ Route::post('/errors', [ClientErrorController::class, 'store'])
     ->middleware('throttle:60,1');
 Route::get('/errors', [ClientErrorController::class, 'index'])
     ->middleware('auth:sanctum');
+
+/*
+|--------------------------------------------------------------------------
+| Waitlist (pre-launch landing page) — /api/waitlist/{client,owner}
+|--------------------------------------------------------------------------
+| Public, no-auth. Rate-limited per IP to keep the table clean if some bot
+| finds the form. The same IP can legitimately submit twice (one client +
+| one owner intent), so the cap is moderate.
+*/
+Route::post('/waitlist/client', [WaitlistController::class, 'storeClient'])
+    ->middleware('throttle:5,1');
+Route::post('/waitlist/owner', [WaitlistController::class, 'storeOwner'])
+    ->middleware('throttle:5,1');
 
