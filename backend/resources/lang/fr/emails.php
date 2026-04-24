@@ -111,6 +111,18 @@ return [
     ],
 
     // ---------------------------------------------------------------------
+    // Invitation (link-based, employee)
+    // ---------------------------------------------------------------------
+    'invitation' => [
+        'subject'    => 'Invitation à rejoindre :company',
+        'greeting'   => 'Bonjour :name,',
+        'intro'      => ':owner t\'invite à rejoindre l\'équipe de :company sur Termini im.',
+        'cta'        => 'Créer mon compte',
+        'expires_at' => 'Ce lien expire le :date.',
+        'footer'     => 'Si tu n\'attendais pas cette invitation, ignore simplement cet email.',
+    ],
+
+    // ---------------------------------------------------------------------
     // Reset password
     // ---------------------------------------------------------------------
     'reset' => [

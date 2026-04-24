@@ -111,6 +111,18 @@ return [
     ],
 
     // ---------------------------------------------------------------------
+    // Invitation (link-based, employee)
+    // ---------------------------------------------------------------------
+    'invitation' => [
+        'subject'    => 'Invitation to join :company',
+        'greeting'   => 'Hello :name,',
+        'intro'      => ':owner has invited you to join :company on Termini im.',
+        'cta'        => 'Create my account',
+        'expires_at' => 'This link expires on :date.',
+        'footer'     => 'If you weren\'t expecting this invitation, just ignore this email.',
+    ],
+
+    // ---------------------------------------------------------------------
     // Reset password
     // ---------------------------------------------------------------------
     'reset' => [

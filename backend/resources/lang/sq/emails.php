@@ -111,6 +111,18 @@ return [
     ],
 
     // ---------------------------------------------------------------------
+    // Invitation (link-based, employee)
+    // ---------------------------------------------------------------------
+    'invitation' => [
+        'subject'    => 'Ftesë për t\'u bashkuar me :company',
+        'greeting'   => 'Përshëndetje :name,',
+        'intro'      => ':owner të ka ftuar të bashkohesh me :company në Termini im.',
+        'cta'        => 'Krijo llogarinë time',
+        'expires_at' => 'Ky link skadon më :date.',
+        'footer'     => 'Nëse nuk e prisje këtë ftesë, thjesht injoroje këtë email.',
+    ],
+
+    // ---------------------------------------------------------------------
     // Reset password
     // ---------------------------------------------------------------------
     'reset' => [
