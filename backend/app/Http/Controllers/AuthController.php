@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\AppointmentStatus;
 use App\Enums\CompanyRole;
+use App\Enums\InvitationStatus;
 use App\Enums\UserRole;
 use App\Http\Requests\Auth\ChangePasswordRequest;
 use App\Http\Requests\Auth\ForgotPasswordRequest;
@@ -18,11 +19,13 @@ use App\Http\Requests\Auth\VerifyEmailRequest;
 use App\Http\Resources\AuthResource;
 use App\Http\Resources\UserResource;
 use App\Jobs\SendAppointmentCancelledByClientNotification;
+use App\Jobs\SendInvitationDecisionPush;
 use App\Jobs\SendWelcomeClientEmail;
 use App\Jobs\SendWelcomeOwnerEmail;
 use App\Models\Appointment;
 use App\Models\Company;
 use App\Models\CompanyUser;
+use App\Models\EmployeeInvitation;
 use App\Models\RefreshToken;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
@@ -41,8 +44,35 @@ class AuthController extends Controller
         $data = $request->validated();
         $role = $data['role'] ?? 'user';
 
-        $user = DB::transaction(function () use ($data, $role): User {
-            $user = User::create([
+        // --- Invitation-token branch (pre-flight validation) -----------------
+        $invitation = null;
+        if (! empty($data['invitation_token'])) {
+            $rawToken   = $data['invitation_token'];
+            $invitation = EmployeeInvitation::where('token_hash', hash('sha256', $rawToken))
+                ->with('company')
+                ->first();
+
+            if (! $invitation || $invitation->status !== InvitationStatus::Pending) {
+                return response()->json(['message' => 'Invitation no longer valid.'], 410);
+            }
+
+            if ($invitation->expires_at->isPast()) {
+                return response()->json(['message' => 'Invitation expired.'], 410);
+            }
+
+            if (strtolower($data['email']) !== strtolower($invitation->email)) {
+                return response()->json([
+                    'message' => 'Email does not match invitation.',
+                    'errors'  => ['email' => ['email-mismatch']],
+                ], 422);
+            }
+        }
+        // ---------------------------------------------------------------------
+
+        $user = DB::transaction(function () use ($data, $role, $invitation): User {
+            // Build user attributes — merge email_verified_at when coming from
+            // a valid invitation (server-derived, never client-controlled).
+            $userAttributes = [
                 'first_name' => $data['first_name'],
                 'last_name'  => $data['last_name'],
                 'email'      => $data['email'],
@@ -52,7 +82,13 @@ class AuthController extends Controller
                 'gender'     => $data['gender'] ?? null,
                 'role'       => $role,
                 'locale'     => $data['locale'] ?? 'fr',
-            ]);
+            ];
+
+            if ($invitation !== null) {
+                $userAttributes['email_verified_at'] = now();
+            }
+
+            $user = User::create($userAttributes);
 
             if ($role === UserRole::Company->value) {
                 $company = Company::create([
@@ -79,10 +115,33 @@ class AuthController extends Controller
                 ]);
             }
 
+            // --- Post-create invitation acceptance (inside same transaction) -
+            if ($invitation !== null) {
+                CompanyUser::create([
+                    'company_id'  => $invitation->company_id,
+                    'user_id'     => $user->id,
+                    'role'        => $invitation->role ?? CompanyRole::Employee,
+                    'specialties' => $invitation->specialties ?? [],
+                    'is_active'   => true,
+                ]);
+
+                $invitation->update([
+                    'status'            => InvitationStatus::Accepted,
+                    'accepted_at'       => now(),
+                    'resulting_user_id' => $user->id,
+                ]);
+            }
+            // -----------------------------------------------------------------
+
             return $user;
         });
 
-        $user->sendEmailVerificationNotification();
+        // Dispatch outside the transaction so the job is only queued on commit.
+        if ($invitation !== null) {
+            SendInvitationDecisionPush::dispatch($invitation->fresh(), 'accepted');
+        } else {
+            $user->sendEmailVerificationNotification();
+        }
 
         [$accessToken, $refreshToken] = $this->issueTokenPair($user);
 

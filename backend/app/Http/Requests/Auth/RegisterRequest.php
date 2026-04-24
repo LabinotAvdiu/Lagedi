@@ -58,6 +58,8 @@ class RegisterRequest extends FormRequest
 
             'latitude'  => ['nullable', 'numeric', 'between:-90,90'],
             'longitude' => ['nullable', 'numeric', 'between:-180,180'],
+
+            'invitation_token' => ['nullable', 'string', 'regex:/^[a-f0-9]{64}$/'],
         ];
     }
 }

@@ -69,4 +69,64 @@ class RegisterWithTokenTest extends TestCase
         $this->getJson('/api/invitations/' . str_repeat('z', 64))
             ->assertStatus(404);
     }
+
+    public function test_register_with_valid_token_creates_user_and_pivot(): void
+    {
+        [$owner, $company, $invitation, $token] = $this->createPendingInvitation();
+
+        $payload = [
+            'first_name'       => 'Alice',
+            'last_name'        => 'Martin',
+            'email'            => 'alice@example.com',
+            'password'         => 'P@ssw0rd1234',
+            'phone'            => '+38344000000',
+            'invitation_token' => $token,
+        ];
+
+        $response = $this->postJson('/api/auth/register', $payload);
+        $response->assertStatus(201);
+
+        $user = User::where('email', 'alice@example.com')->first();
+        $this->assertNotNull($user);
+        $this->assertNotNull($user->email_verified_at, 'email must be auto-verified');
+
+        $this->assertDatabaseHas('company_user', [
+            'company_id' => $company->id,
+            'user_id'    => $user->id,
+            'is_active'  => true,
+        ]);
+
+        $invitation->refresh();
+        $this->assertEquals(InvitationStatus::Accepted, $invitation->status);
+        $this->assertEquals($user->id, $invitation->resulting_user_id);
+    }
+
+    public function test_register_with_token_but_mismatched_email_fails_422(): void
+    {
+        [$owner, $company, $invitation, $token] = $this->createPendingInvitation();
+
+        $this->postJson('/api/auth/register', [
+            'first_name'       => 'X',
+            'last_name'        => 'Y',
+            'email'            => 'someone-else@example.com',
+            'password'         => 'P@ssw0rd1234',
+            'phone'            => '+1',
+            'invitation_token' => $token,
+        ])->assertStatus(422);
+    }
+
+    public function test_register_with_expired_token_fails_410(): void
+    {
+        [$owner, $company, $invitation, $token] = $this->createPendingInvitation();
+        $invitation->update(['expires_at' => now()->subDay()]);
+
+        $this->postJson('/api/auth/register', [
+            'first_name'       => 'Alice',
+            'last_name'        => 'Martin',
+            'email'            => 'alice@example.com',
+            'password'         => 'P@ssw0rd1234',
+            'phone'            => '+1',
+            'invitation_token' => $token,
+        ])->assertStatus(410);
+    }
 }
