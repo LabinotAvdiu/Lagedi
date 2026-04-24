@@ -29,8 +29,12 @@ class SendEmployeeInvitationLinkEmail implements ShouldQueue
 
     public function handle(): void
     {
+        $locale = \App\Models\User::where('email', $this->invitation->email)
+            ->value('locale')
+            ?? config('app.fallback_locale', 'fr');
+
         Mail::to($this->invitation->email)
-            ->locale(config('app.fallback_locale', 'fr'))
+            ->locale($locale)
             ->send(new EmployeeInvitationLinkMail(
                 invitation:     $this->invitation,
                 company:        $this->company,

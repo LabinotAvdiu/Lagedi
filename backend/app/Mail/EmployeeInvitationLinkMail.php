@@ -40,6 +40,7 @@ class EmployeeInvitationLinkMail extends Mailable
                 'firstName'   => $this->invitation->first_name,
                 'token'       => $this->plaintextToken,
                 'expiresAt'   => $this->invitation->expires_at,
+                'deepLink'    => config('app.url') . '/invite/' . $this->plaintextToken,
             ],
         );
     }
