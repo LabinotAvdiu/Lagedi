@@ -6,6 +6,8 @@ namespace App\Http\Controllers;
 
 use App\Enums\AppointmentStatus;
 use App\Enums\BookingMode;
+use App\Jobs\SendBookingConfirmationEmail;
+use App\Jobs\SendCapacityFullNotification;
 use App\Http\Requests\Booking\StoreBookingRequest;
 use App\Http\Resources\AppointmentResource;
 use App\Http\Resources\MyAppointmentResource;
@@ -158,6 +160,12 @@ class BookingController extends Controller
                     return ['error' => 'conflict'];
                 }
 
+                // Auto-approve: capacity_based salons with the flag set skip
+                // the pending queue and create confirmed appointments directly.
+                $autoStatus = (bool) ($company->capacity_auto_approve ?? false)
+                    ? AppointmentStatus::Confirmed
+                    : AppointmentStatus::Pending;
+
                 return Appointment::create([
                     'user_id'         => $request->user()->id,
                     'company_id'      => $companyId,
@@ -166,7 +174,7 @@ class BookingController extends Controller
                     'date'            => $date,
                     'start_time'      => $startTime,
                     'end_time'        => $endTime,
-                    'status'          => AppointmentStatus::Pending,
+                    'status'          => $autoStatus,
                 ]);
             });
 
@@ -187,6 +195,15 @@ class BookingController extends Controller
             }
 
             Cache::forget("company:availability:{$companyId}:{$date}");
+
+            // Send confirmation email only for confirmed appointments (auto-approve on).
+            // Pending appointments (manual approval) get their email when the owner confirms.
+            if ($result->status === AppointmentStatus::Confirmed) {
+                SendBookingConfirmationEmail::dispatch($result);
+            }
+
+            // C14 — Vérifie si la journée est maintenant pleine et notifie l'owner.
+            SendCapacityFullNotification::dispatch($companyId, $date);
 
             return response()->json([
                 'success' => true,
@@ -270,6 +287,9 @@ class BookingController extends Controller
                 'message' => 'Ce créneau vient d\'être réservé par un autre utilisateur. Veuillez en choisir un autre.',
             ], 409);
         }
+
+        // Employee-based bookings are always confirmed immediately.
+        SendBookingConfirmationEmail::dispatch($result);
 
         return response()->json([
             'success' => true,

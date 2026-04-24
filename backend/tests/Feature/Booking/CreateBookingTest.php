@@ -451,4 +451,56 @@ class CreateBookingTest extends TestCase
         $response->assertStatus(422)
             ->assertJsonValidationErrors(['employee_id']);
     }
+
+    // -------------------------------------------------------------------------
+    // Cross-company authorization — `exists:*` only checks row existence,
+    // not ownership. These tests guard against an attacker booking with a
+    // service/employee_id that belongs to a different company.
+    // -------------------------------------------------------------------------
+
+    public function testCreateBookingRejectsServiceFromOtherCompany(): void
+    {
+        Sanctum::actingAs(User::factory()->create());
+
+        $targetCompany = $this->createCompany();
+        $otherCompany  = Company::create([
+            'name' => 'Salon Other', 'address' => '2 Rue Other',
+            'city' => 'Paris', 'gender' => 'both',
+        ]);
+        // The service exists, but it belongs to otherCompany, not target.
+        $foreignService = $this->createService($otherCompany);
+
+        $response = $this->postJson('/api/bookings', [
+            'company_id' => $targetCompany->id,
+            'service_id' => $foreignService->id,
+            'date_time'  => $this->futureDateTime(),
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['service_id']);
+    }
+
+    public function testCreateBookingRejectsEmployeeFromOtherCompany(): void
+    {
+        Sanctum::actingAs(User::factory()->create());
+
+        $targetCompany = $this->createCompany();
+        $otherCompany  = Company::create([
+            'name' => 'Salon Other', 'address' => '2 Rue Other',
+            'city' => 'Paris', 'gender' => 'both',
+        ]);
+        $targetService  = $this->createService($targetCompany);
+        // The employee exists, but works at otherCompany, not target.
+        $foreignEmployee = $this->createActiveEmployee($otherCompany);
+
+        $response = $this->postJson('/api/bookings', [
+            'company_id'  => $targetCompany->id,
+            'service_id'  => $targetService->id,
+            'employee_id' => $foreignEmployee->id,
+            'date_time'   => $this->futureDateTime(),
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['employee_id']);
+    }
 }

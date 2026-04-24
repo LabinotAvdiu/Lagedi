@@ -32,6 +32,9 @@ use App\Http\Resources\MyCompanyResource;
 use App\Http\Resources\OpeningHourResource;
 use App\Http\Resources\OwnerAppointmentResource;
 use App\Http\Resources\ServiceCategoryResource;
+use App\Jobs\SendBookingConfirmationEmail;
+use App\Jobs\SendEmployeeInvitationEmail;
+use App\Jobs\SendWalkInCreatedNotification;
 use App\Models\Appointment;
 use App\Models\Company;
 use Carbon\Carbon;
@@ -224,7 +227,11 @@ class MyCompanyController extends Controller
 
         Cache::forget("company:detail:{$company->id}");
 
-        return new MyCompanyResource($company->fresh('openingHours'));
+        $fresh = Company::select('*', DB::raw('ST_X(location) AS longitude'), DB::raw('ST_Y(location) AS latitude'))
+            ->find($company->id);
+        $fresh->load('openingHours');
+
+        return new MyCompanyResource($fresh);
     }
 
     // =========================================================================
@@ -504,6 +511,12 @@ class MyCompanyController extends Controller
 
         $pivot->load('user');
 
+        /** @var User $owner */
+        $owner = auth()->user();
+
+        // Notify the invited employee immediately.
+        SendEmployeeInvitationEmail::dispatch($user, $owner, $company);
+
         return response()->json([
             'success' => true,
             'message' => 'Employee added.',
@@ -735,16 +748,31 @@ class MyCompanyController extends Controller
             return $company;
         }
 
-        $company->update(['booking_mode' => $request->validated('booking_mode')]);
+        $updateData = [];
+
+        if ($request->has('booking_mode')) {
+            $updateData['booking_mode'] = $request->validated('booking_mode');
+        }
+
+        if ($request->has('capacity_auto_approve')) {
+            $updateData['capacity_auto_approve'] = $request->validated('capacity_auto_approve');
+        }
+
+        if (! empty($updateData)) {
+            $company->update($updateData);
+        }
 
         Cache::forget("company:detail:{$company->id}");
 
+        $fresh = $company->fresh();
+
         return response()->json([
-            'success'     => true,
-            'message'     => 'Booking settings updated.',
-            'bookingMode' => $company->fresh()->booking_mode instanceof \BackedEnum
-                ? $company->fresh()->booking_mode->value
-                : $company->fresh()->booking_mode,
+            'success'             => true,
+            'message'             => 'Booking settings updated.',
+            'bookingMode'         => $fresh->booking_mode instanceof \BackedEnum
+                ? $fresh->booking_mode->value
+                : $fresh->booking_mode,
+            'capacityAutoApprove' => (bool) ($fresh->capacity_auto_approve ?? false),
         ]);
     }
 
@@ -1249,6 +1277,13 @@ class MyCompanyController extends Controller
 
         Cache::forget("company:availability:{$company->id}:{$dateStr}");
 
+        // Dispatch booking confirmation email when owner manually confirms
+        // a pending appointment (capacity mode with manual approval).
+        if ($newStatus === AppointmentStatus::Confirmed
+            && $currentStatus === AppointmentStatus::Pending) {
+            SendBookingConfirmationEmail::dispatch($appointment->fresh());
+        }
+
         return response()->json([
             'success' => true,
             'message' => 'Appointment status updated.',
@@ -1348,6 +1383,11 @@ class MyCompanyController extends Controller
         Cache::forget("company:availability:{$company->id}:{$date}");
 
         $appointment->load(['service', 'companyUser.user', 'user']);
+
+        // C9 — Notifie l'owner si c'est un employé (pas l'owner lui-même) qui crée le walk-in.
+        if (! $access['isOwner']) {
+            SendWalkInCreatedNotification::dispatch($appointment);
+        }
 
         // Inject viewer context so the returned resource carries correct
         // can.* flags — otherwise the front would see cancel=false on the
