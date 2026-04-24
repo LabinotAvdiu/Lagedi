@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Controllers\AppointmentCancelController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\EmployeeInvitationController;
 use App\Http\Controllers\ClientErrorController;
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\CompanyController;
@@ -255,6 +256,18 @@ Route::middleware('auth:sanctum')->prefix('my-company')->group(function () {
     Route::put('/reviews/{id}/hide',    [MyCompanyReviewController::class, 'hide']);
     Route::put('/reviews/{id}/unhide',  [MyCompanyReviewController::class, 'unhide']);
 });
+
+/*
+|--------------------------------------------------------------------------
+| Invitations — /api/invitations/{token}  (public)
+|--------------------------------------------------------------------------
+| Public endpoint: no auth required — the invited employee clicks the link
+| in their email before they have an account.  Token is a 64-char hex string
+| (sha256 of the raw random bytes) matched server-side to prevent enumeration.
+*/
+Route::get('/invitations/{token}', [EmployeeInvitationController::class, 'showByToken'])
+    ->where('token', '[a-f0-9]{64}')
+    ->middleware('throttle:60,1');
 
 /*
 |--------------------------------------------------------------------------
