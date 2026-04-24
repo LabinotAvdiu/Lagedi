@@ -201,6 +201,9 @@ class CapacityAutoApproveTest extends TestCase
 
         $this->getJson('/api/my-company')
             ->assertOk()
-            ->assertJsonPath('capacityAutoApprove', true);
+            // MyCompanyResource wraps the payload in the default `data`
+            // envelope — no ::withoutWrapping() override anywhere in
+            // bootstrap/providers, so the JSON path lives under `data.*`.
+            ->assertJsonPath('data.capacityAutoApprove', true);
     }
 }
