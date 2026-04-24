@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\Enums\AppointmentStatus;
 use App\Http\Requests\Booking\StoreReviewRequest;
 use App\Http\Resources\ReviewResource;
+use App\Jobs\SendNewReviewNotification;
 use App\Models\Appointment;
 use App\Models\Company;
 use App\Models\Review;
@@ -108,6 +109,9 @@ class ReviewController extends Controller
         Cache::forget("company:detail:{$appointment->company_id}");
 
         $review->load('user');
+
+        // C8 — Notifie l'owner du salon qu'un nouvel avis a été publié.
+        SendNewReviewNotification::dispatch($review);
 
         return (new ReviewResource($review))
             ->response()

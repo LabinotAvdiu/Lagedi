@@ -26,9 +26,10 @@ class MyCompanyResource extends JsonResource
             'postalCode'      => $this->postal_code,
             'country'         => $this->country,
             'gender'          => $this->gender?->value,
-            'bookingMode'     => $this->booking_mode instanceof \BackedEnum
+            'bookingMode'          => $this->booking_mode instanceof \BackedEnum
                 ? $this->booking_mode->value
                 : $this->booking_mode,
+            'capacityAutoApprove'  => (bool) ($this->capacity_auto_approve ?? false),
             'profileImageUrl' => $this->profile_image_url,
             'rating'          => (float) $this->rating,
             'reviewCount'     => (int) $this->review_count,

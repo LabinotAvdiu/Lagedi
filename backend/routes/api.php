@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Controllers\AppointmentCancelController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\ClientErrorController;
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\FavoriteController;
@@ -12,6 +13,8 @@ use App\Http\Controllers\MyCompanyGalleryController;
 use App\Http\Controllers\MyCompanyReviewController;
 use App\Http\Controllers\MyScheduleController;
 use App\Http\Controllers\NotificationPreferenceController;
+use App\Http\Controllers\NotificationPreferencesController;
+use App\Http\Controllers\NotificationsLogController;
 use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\SupportTicketController;
 use App\Http\Controllers\UserAvatarController;
@@ -42,12 +45,12 @@ Route::prefix('auth')->group(function () {
     Route::post('/facebook', [AuthController::class, 'facebookLogin']);
     Route::post('/apple',    [AuthController::class, 'appleLogin']);
 
-    // Password reset flow
+    // Password reset flow — throttled to block OTP brute-force attempts
     Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:3,1');
-    Route::post('/reset-password',  [AuthController::class, 'resetPassword']);
+    Route::post('/reset-password',  [AuthController::class, 'resetPassword'])->middleware('throttle:5,1');
 
-    // Email verification
-    Route::post('/verify-email',         [AuthController::class, 'verifyEmail']);
+    // Email verification — throttled to block OTP brute-force attempts
+    Route::post('/verify-email',         [AuthController::class, 'verifyEmail'])->middleware('throttle:5,1');
     Route::post('/resend-verification',  [AuthController::class, 'resendVerification'])->middleware('throttle:3,1');
 
     // Protected auth routes (require valid Sanctum token)
@@ -58,6 +61,8 @@ Route::prefix('auth')->group(function () {
         Route::put('/change-password',    [AuthController::class, 'changePassword']);
         // Social sign-up completion for company accounts.
         Route::post('/complete-company',  [AuthController::class, 'completeCompanySignup']);
+        // Account deletion — required by Apple App Store (2022+) and Google Play (2024+).
+        Route::delete('/account',         [AuthController::class, 'destroy']);
     });
 });
 
@@ -150,8 +155,20 @@ Route::middleware('auth:sanctum')->prefix('my-schedule')->group(function () {
 |--------------------------------------------------------------------------
 */
 Route::middleware('auth:sanctum')->prefix('me')->group(function () {
+    // Legacy (owner/employee only preferences)
     Route::get('/notification-preferences',  [NotificationPreferenceController::class, 'show']);
     Route::put('/notification-preferences',  [NotificationPreferenceController::class, 'update']);
+
+    // D19 — Granular notification preferences (all users, channel × type)
+    Route::get('/notification-preferences/granular',   [NotificationPreferencesController::class, 'index']);
+    Route::patch('/notification-preferences/granular', [NotificationPreferencesController::class, 'update']);
+
+    // D20 — Notifications log inbox (read + mark-read)
+    // NOTE: read-all must be declared before {id} to avoid GoRouter-style collision.
+    Route::get('/notifications-log', [NotificationsLogController::class, 'index']);
+    Route::patch('/notifications-log/read-all', [NotificationsLogController::class, 'markAllAsRead']);
+    Route::patch('/notifications-log/{id}/read', [NotificationsLogController::class, 'markAsRead']);
+
     Route::post('/devices',                  [UserDeviceController::class, 'store']);
     Route::delete('/devices',                [UserDeviceController::class, 'destroy']);
     Route::post('/avatar',                   [UserAvatarController::class, 'store']);
@@ -241,4 +258,18 @@ Route::middleware('auth:sanctum')->prefix('my-company')->group(function () {
 */
 Route::post('/support-tickets', [SupportTicketController::class, 'store'])
     ->middleware('throttle:3,1');
+
+/*
+|--------------------------------------------------------------------------
+| E28 — Client error reporting  — /api/errors
+|--------------------------------------------------------------------------
+| POST : public (sans auth) — capture les crashs avant le login.
+|         Rate-limité à 60/min par IP pour absorber les bursts légitimes
+|         sans permettre d'inonder la table.
+| GET  : auth:sanctum + gate owner — debug Labinot uniquement.
+*/
+Route::post('/errors', [ClientErrorController::class, 'store'])
+    ->middleware('throttle:60,1');
+Route::get('/errors', [ClientErrorController::class, 'index'])
+    ->middleware('auth:sanctum');
 
