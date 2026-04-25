@@ -1,0 +1,9 @@
+# CORS headers for cross-origin image embeds.
+# Flutter web (CanvasKit) fetches images via fetch() to render them on a
+# canvas — without these headers the canvas gets tainted and the image
+# renders as broken. Must be served by Apache on /storage/* paths.
+<IfModule mod_headers.c>
+    Header set Access-Control-Allow-Origin "*"
+    Header set Access-Control-Allow-Methods "GET, OPTIONS"
+    Header set Access-Control-Allow-Headers "Content-Type"
+</IfModule>
