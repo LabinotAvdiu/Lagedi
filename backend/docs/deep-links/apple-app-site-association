@@ -1,0 +1,15 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["REPLACE_WITH_TEAM_ID.com.terminiim.app"],
+        "components": [
+          {
+            "/": "/company/*",
+            "comment": "Open salon detail page directly in the Termini Im app"
+          }
+        ]
+      }
+    ]
+  }
+}
