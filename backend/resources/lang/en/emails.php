@@ -134,4 +134,18 @@ return [
         'expires_in' => 'This code expires in 60 minutes.',
         'ignore'     => 'Didn\'t request a reset? Just ignore this email — your current password stays unchanged.',
     ],
+
+    'share_qr' => [
+        'subject'        => 'Your QR code for :salon',
+        'preheader'      => 'Your salon QR code is attached — print it or share it.',
+        'eyebrow'        => 'Business card',
+        'heading'        => 'Your QR code',
+        'intro'          => 'Here is the QR code for :salon. Scanning it opens the booking flow directly.',
+        'with_employee'  => 'With :name',
+        'attached_hint'  => '(QR code attached — termini-im-qr.png)',
+        'bottom_text'    => 'Add me to favorites and book',
+        'tip'            => 'Print it, frame it in your salon, or share it via WhatsApp or Instagram. Scanning adds the salon to the client\'s favorites and opens the booking directly.',
+        'cta'            => 'Open my salon',
+        'signature'      => 'The Termini im team — bukuria fillon me një takim.',
+    ],
 ];

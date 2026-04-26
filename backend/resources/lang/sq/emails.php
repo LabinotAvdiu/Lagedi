@@ -134,4 +134,18 @@ return [
         'expires_in' => 'Ky kod skadon pas 60 minutash.',
         'ignore'     => 'Nuk ke kërkuar ti këtë rivendosje? Injoroje këtë email — fjalëkalimi yt aktual mbetet i pandryshuar.',
     ],
+
+    'share_qr' => [
+        'subject'        => 'Kodi yt QR për :salon',
+        'preheader'      => 'Kodi QR i sallonit tënd është në bashkëngjitje — printo ose ndaje.',
+        'eyebrow'        => 'Karta e biznesit',
+        'heading'        => 'Kodi yt QR',
+        'intro'          => 'Ja kodi QR i :salon. Skanimi hap drejtpërdrejt rezervimin.',
+        'with_employee'  => 'Me :name',
+        'attached_hint'  => '(Kodi QR i bashkëngjitur — termini-im-qr.png)',
+        'bottom_text'    => 'Më shto në të preferuarat dhe rezervo',
+        'tip'            => 'Printoje, kornizoje në sallon, ose ndaje me WhatsApp apo Instagram. Skanimi shton sallonin tek të preferuarat e klientit dhe hap drejtpërdrejt rezervimin.',
+        'cta'            => 'Hap sallonin tim',
+        'signature'      => 'Ekipi Termini im — bukuria fillon me një takim.',
+    ],
 ];

@@ -50,6 +50,15 @@ class CompanyListResource extends JsonResource
             // Injected post-cache by CompanyController::index() — never stored
             // in the cache itself so it can never leak between users.
             'isFavorite'   => (bool) ($this->is_favorite ?? false),
+            // Preferred employee for this favorite (null when no preference,
+            // or when company isn't employee_based, or when the user simply
+            // hasn't favorited the salon). The Flutter app uses this to show
+            // a "favorite-with-employee" card alongside a plain version
+            // when both `isFavorite` and `preferredEmployeeId` are set.
+            'preferredEmployeeId'   => $this->preferred_employee_id !== null
+                ? (string) $this->preferred_employee_id
+                : null,
+            'preferredEmployeeName' => $this->preferred_employee_name ?? null,
         ];
     }
 }
