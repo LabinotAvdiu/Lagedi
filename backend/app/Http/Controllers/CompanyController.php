@@ -216,24 +216,38 @@ class CompanyController extends Controller
         // Load user's favorite IDs in ONE query (never inside a loop).
         // For anonymous users this is an empty set — no DB hit.
         // ------------------------------------------------------------------
-        $favoriteIds = [];        // company_id → created_at (string)
+        $favoriteIds = [];        // company_id → ['created_at', 'preferred_employee_id', 'preferred_employee_name']
         if ($userId) {
-            $rows = DB::table('company_favorites')
-                ->where('user_id', $userId)
-                ->get(['company_id', 'created_at']);
+            $rows = DB::table('company_favorites as cf')
+                ->leftJoin('users', 'users.id', '=', 'cf.preferred_employee_id')
+                ->where('cf.user_id', $userId)
+                ->get([
+                    'cf.company_id',
+                    'cf.created_at',
+                    'cf.preferred_employee_id',
+                    'users.name as preferred_employee_name',
+                ]);
 
             foreach ($rows as $row) {
-                $favoriteIds[$row->company_id] = $row->created_at;
+                $favoriteIds[$row->company_id] = [
+                    'created_at'              => $row->created_at,
+                    'preferred_employee_id'   => $row->preferred_employee_id,
+                    'preferred_employee_name' => $row->preferred_employee_name,
+                ];
             }
         }
 
         // ------------------------------------------------------------------
-        // Inject isFavorite into each cached item (post-cache, never stored).
+        // Inject isFavorite + preferredEmployee into each cached item
+        // (post-cache, never stored — never leak between users).
         // ------------------------------------------------------------------
         $items = array_map(function (array $row) use ($favoriteIds): object {
-            $row['is_favorite'] = isset($favoriteIds[$row['id']]);
+            $fav = $favoriteIds[$row['id']] ?? null;
+            $row['is_favorite']             = $fav !== null;
+            $row['preferred_employee_id']   = $fav['preferred_employee_id'] ?? null;
+            $row['preferred_employee_name'] = $fav['preferred_employee_name'] ?? null;
             // Store the favorite's created_at for sorting below (null if not fav).
-            $row['_fav_created_at'] = $favoriteIds[$row['id']] ?? null;
+            $row['_fav_created_at'] = $fav['created_at'] ?? null;
             return (object) $row;
         }, $cached['items']);
 

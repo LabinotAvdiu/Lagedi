@@ -92,6 +92,15 @@ Route::middleware('auth:sanctum')->group(function () {
 
 /*
 |--------------------------------------------------------------------------
+| Share QR  — POST /api/share/qr-email (owner / employee sends own QR by email)
+|--------------------------------------------------------------------------
+*/
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/share/qr-email', [\App\Http\Controllers\ShareQrController::class, 'email']);
+});
+
+/*
+|--------------------------------------------------------------------------
 | Booking routes  — /api/bookings/*
 |--------------------------------------------------------------------------
 */

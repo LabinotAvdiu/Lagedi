@@ -134,4 +134,18 @@ return [
         'expires_in' => 'Ce code expire dans 60 minutes.',
         'ignore'     => 'Vous n\'avez pas demandé cette réinitialisation ? Ignorez simplement cet email — votre mot de passe actuel reste inchangé.',
     ],
+
+    'share_qr' => [
+        'subject'        => 'Ton QR code pour :salon',
+        'preheader'      => 'Ton QR code de salon est en pièce jointe — imprime-le ou partage-le.',
+        'eyebrow'        => 'Carte de visite',
+        'heading'        => 'Ton QR code',
+        'intro'          => 'Voici le QR code de :salon. Le scan ouvre directement la prise de RDV.',
+        'with_employee'  => 'Avec :name',
+        'attached_hint'  => '(QR code en pièce jointe — termini-im-qr.png)',
+        'bottom_text'    => 'Ajoute-moi en favori et prends RDV',
+        'tip'            => 'Imprime-le, encadre-le dans ton salon, ou partage-le par WhatsApp ou Instagram. Le scan ajoute le salon aux favoris du client et ouvre directement la réservation.',
+        'cta'            => 'Ouvrir mon salon',
+        'signature'      => 'L\'équipe Termini im — bukuria fillon me një takim.',
+    ],
 ];
