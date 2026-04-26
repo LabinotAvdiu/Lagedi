@@ -61,7 +61,12 @@ class ShareQrController extends Controller
         $employeeName = null;
         if (! empty($validated['employee_id'])) {
             $employee = $company->employees()->where('users.id', $validated['employee_id'])->first();
-            $employeeName = $employee?->name;
+            $employeeName = $employee !== null
+                ? trim((string) ($employee->first_name ?? $employee->last_name ?? ''))
+                : null;
+            if ($employeeName === '') {
+                $employeeName = null;
+            }
         }
 
         Mail::to($user->email)

@@ -225,14 +225,22 @@ class CompanyController extends Controller
                     'cf.company_id',
                     'cf.created_at',
                     'cf.preferred_employee_id',
-                    'users.name as preferred_employee_name',
+                    'users.first_name as preferred_employee_first_name',
+                    'users.last_name as preferred_employee_last_name',
                 ]);
 
             foreach ($rows as $row) {
+                // Display name = first name (matches the editorial badge
+                // "Avec Lina" pattern). If only last_name is available
+                // (legacy data), fall back to that.
+                $displayName = trim((string) ($row->preferred_employee_first_name
+                    ?? $row->preferred_employee_last_name
+                    ?? ''));
+
                 $favoriteIds[$row->company_id] = [
                     'created_at'              => $row->created_at,
                     'preferred_employee_id'   => $row->preferred_employee_id,
-                    'preferred_employee_name' => $row->preferred_employee_name,
+                    'preferred_employee_name' => $displayName !== '' ? $displayName : null,
                 ];
             }
         }
