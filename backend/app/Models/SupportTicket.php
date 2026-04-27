@@ -20,6 +20,8 @@ class SupportTicket extends Model
         'source_context',
         'status',
         'admin_notes',
+        'resolved_at',
+        'resolved_by_id',
     ];
 
     protected function casts(): array
@@ -27,6 +29,7 @@ class SupportTicket extends Model
         return [
             'attachments'    => 'array',
             'source_context' => 'array',
+            'resolved_at'    => 'datetime',
         ];
     }
 

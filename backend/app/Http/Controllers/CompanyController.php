@@ -225,7 +225,7 @@ class CompanyController extends Controller
                     'cf.company_id',
                     'cf.created_at',
                     'cf.preferred_employee_id',
-                    'users.name as preferred_employee_name',
+                    DB::raw("CONCAT(users.first_name, ' ', users.last_name) as preferred_employee_name"),
                 ]);
 
             foreach ($rows as $row) {
