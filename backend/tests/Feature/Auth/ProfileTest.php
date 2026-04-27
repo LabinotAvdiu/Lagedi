@@ -40,6 +40,18 @@ class ProfileTest extends TestCase
             ->assertJsonPath('data.email', 'jean@example.com');
     }
 
+    public function testProfileReturnsAdminRoleWhenUserIsAdmin(): void
+    {
+        $user = User::factory()->create([
+            'role' => \App\Enums\UserRole::Admin,
+        ]);
+        Sanctum::actingAs($user);
+
+        $this->getJson('/api/auth/profile')
+            ->assertOk()
+            ->assertJsonPath('data.role', 'admin');
+    }
+
     public function testProfileDoesNotExposePassword(): void
     {
         $user = User::factory()->create();

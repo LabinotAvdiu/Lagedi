@@ -3,6 +3,7 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use App\Http\Middleware\EnsureUserIsAdmin;
 use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -13,6 +14,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->alias([
+            'admin' => EnsureUserIsAdmin::class,
+        ]);
+
         // Apache on the same VPS reverse-proxies social-crawler hits from
         // www.termini-im.com → api.termini-im.com/share/company/{id}. Without
         // trusting the proxy, every bot would appear to originate from the

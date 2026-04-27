@@ -11,6 +11,7 @@ use App\Http\Controllers\BookingController;
 use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\FavoriteController;
 use App\Http\Controllers\MyCompanyController;
+use App\Http\Controllers\Admin\AdminSupportTicketController;
 use App\Http\Controllers\MyCompanyGalleryController;
 use App\Http\Controllers\MyCompanyReviewController;
 use App\Http\Controllers\MyScheduleController;
@@ -294,6 +295,25 @@ Route::get('/invitations/{token}', [EmployeeInvitationController::class, 'showBy
 */
 Route::post('/support-tickets', [SupportTicketController::class, 'store'])
     ->middleware('throttle:3,1');
+
+/*
+|--------------------------------------------------------------------------
+| Admin support tickets  — /api/admin/support-tickets/*
+|--------------------------------------------------------------------------
+| Protected: auth:sanctum + admin role.
+| Rate-limited to 60 req/min — low cost but limits enumeration if account
+| is compromised.
+*/
+Route::middleware(['auth:sanctum', 'admin', 'throttle:60,1'])
+    ->prefix('admin')
+    ->name('admin.')
+    ->group(function () {
+        Route::get('/support-tickets', [AdminSupportTicketController::class, 'index'])
+            ->name('support-tickets.index');
+        Route::patch('/support-tickets/{id}', [AdminSupportTicketController::class, 'updateStatus'])
+            ->whereNumber('id')
+            ->name('support-tickets.update');
+    });
 
 /*
 |--------------------------------------------------------------------------
